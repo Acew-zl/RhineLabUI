@@ -17,7 +17,7 @@
     "build:cloudflare": "npm run build && node scripts/package-cloudflare.mjs",
     "dev:extension": "npm run predev && vite --mode extension --host 127.0.0.1",
     "preview:extension": "node scripts/serve-extension.mjs",
-    "check:extension": "node scripts/check-extension.mjs && node --experimental-strip-types --test scripts/check-presentation-preparation.mjs",
+    "check:extension": "node scripts/check-extension.mjs && node --experimental-strip-types --test scripts/check-presentation-preparation.mjs scripts/check-bookmarks.mjs",
     "build:extension": "npm run prebuild && tsc && vite build --mode extension --outDir release/extension && node scripts/build-extension.mjs && node scripts/check-extension.mjs",
     "build:wallpaper": "node scripts/patch-rolling-number.mjs && node scripts/export-records.mjs && tsc && vite build --mode wallpaper --outDir release/wallpaper && node scripts/build-wallpaper.mjs",
     "format": "prettier --write src scripts index.html package.json tsconfig.json",

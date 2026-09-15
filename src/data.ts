@@ -12,22 +12,43 @@ export interface ArchiveRecord {
   abstract: string;
   findings: string[];
   source: string;
+  bookmarkId?: string;
+  bookmarkUrl?: string;
+  bookmarkFolder?: string;
+  empty?: boolean;
 }
 
-export const records: ArchiveRecord[] = content.records;
+export let records: ArchiveRecord[] = content.records;
 export const categories = ["全部档案", ...content.categories];
 export const archiveColumns = content.columns;
+let filesByColumn: number[][] = [];
+let locations: { lane: number; row: number; slot: number }[] = [];
+function indexCatalog() {
+  filesByColumn = archiveColumns.map(() => []);
+  locations = [];
+  const lanes = new Map(archiveColumns.map((name, lane) => [name, lane]));
+  records.forEach((record, index) => {
+    const lane = lanes.get(record.category)!;
+    const row = 12 + filesByColumn[lane].length;
+    filesByColumn[lane].push(index);
+    locations[index] = { lane, row, slot: lane * 32 + row };
+  });
+}
+indexCatalog();
+export let bookmarkCatalog = false;
+export function installBookmarkCatalog(next: ArchiveRecord[], columns: string[]) {
+  records = next;
+  archiveColumns.splice(0, archiveColumns.length, ...columns);
+  categories.splice(0, categories.length, "全部档案", ...columns);
+  bookmarkCatalog = true;
+  indexCatalog();
+}
 
 export function columnFiles(lane: number) {
-  return records
-    .map((record, index) => ({ record, index }))
-    .filter(({ record }) => record.category === archiveColumns[lane])
-    .map(({ index }) => index);
+  return filesByColumn[lane] ?? [];
 }
 export function fileLocation(index: number) {
-  const lane = archiveColumns.indexOf(records[index].category);
-  const row = 12 + columnFiles(lane).indexOf(index);
-  return { lane, row, slot: lane * 32 + row };
+  return locations[index];
 }
 export function fileAtSlot(slot: number) {
   const files = columnFiles(Math.floor(slot / 32));

@@ -20,7 +20,8 @@ import { applyTextureQuality, resizeQuality } from "./quality-renderer";
 import { CardAppearance } from "./appearance";
 import { configureInternalOptics } from "./internal-optics";
 import { DecryptionController } from "./decryption";
-import { fileAtSlot, fileLocation } from "./data";
+import { fileLocation, bookmarkCatalog, records, archiveColumns } from "./data";
+import { BookmarkCovers, coverGeometry, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon } from "./bookmark-covers";
 import {
   cellKey,
   sameCell,
@@ -72,6 +73,8 @@ export class ArchiveScene {
   }
   revealImmediately() { this.reveal = this.targetReveal; }
   dispose() {
+    this.unsubscribeCover?.();
+    this.bookmarkCovers?.dispose();
     this.inputEvents.abort();
     this.cancelPointer();
     disposeThreeTree(this.scene);
@@ -211,6 +214,21 @@ export class ArchiveScene {
   private pulses: { row: number; lane: number; time: number }[] = [];
   private pendingPulse: ArchiveCell | null = null;
   private selectedSlot = 76;
+  private selectedIndex = 0;
+  private bookmarkCovers?: BookmarkCovers;
+  private unsubscribeCover?: () => void;
+  refreshBookmarkCovers() {
+    this.bookmarkCovers?.refresh();
+    this.drawLabel(this.selectedIndex);
+    for (const old of this.outgoing) {
+      const label = old.group.children.at(-1) as THREE.Mesh;
+      const material = label.material as THREE.MeshBasicMaterial;
+      const canvas = material.map?.image as HTMLCanvasElement | undefined;
+      if (canvas) { paintBookmarkCover(canvas.getContext('2d')!, records[fileAtCell(old.cell)], canvas.width, canvas.height); material.map!.needsUpdate = true; }
+      label.visible = coverPreferences.logo || coverPreferences.title;
+    }
+    this.renderState.invalidate();
+  }
   private detail = 0;
   private targetDetail = 0;
   private reveal = 0;
@@ -265,7 +283,7 @@ export class ArchiveScene {
     // All composer passes see the same geometry within one application frame.
     // Generate the shadow map in the beauty pass and reuse it in depth/normal passes.
     this.renderer.shadowMap.autoUpdate = false;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.domElement.setAttribute(
@@ -475,7 +493,7 @@ export class ArchiveScene {
     this.labelTexture.anisotropy =
       this.renderer.capabilities.getMaxAnisotropy();
     const label = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.99, 0.46),
+      bookmarkCatalog ? coverGeometry() : new THREE.PlaneGeometry(0.99, 0.46),
       new THREE.MeshBasicMaterial({
         map: this.labelTexture,
         toneMapped: false,
@@ -483,7 +501,7 @@ export class ArchiveScene {
         depthWrite: false,
       }),
     );
-    label.position.set(-1.36, 3.04, 0.255);
+    if (!bookmarkCatalog) label.position.set(-1.36, 3.04, 0.255);
     this.model.add(label);
     this.appearance.prepare(this.model);
     this.appearance.apply(this.model, 0);
@@ -491,6 +509,12 @@ export class ArchiveScene {
     this.scene.add(this.model);
     this.model.position.copy(this.cellPosition(poolCell(this.selectedSlot)));
     this.loaded = true;
+    if (bookmarkCatalog) {
+      this.bookmarkCovers = new BookmarkCovers(this.renderer.capabilities.maxTextureSize, () => this.renderState.invalidate());
+      await this.bookmarkCovers.prepare();
+      this.scene.add(this.bookmarkCovers.mesh);
+      this.unsubscribeCover = onBookmarkIcon(() => { this.drawLabel(this.selectedIndex); this.renderState.invalidate(); });
+    }
   }
 
   private assemblyTemplate?: Promise<THREE.Group>;
@@ -510,6 +534,7 @@ export class ArchiveScene {
         this.instances[0].setMatrixAt(i, transform.matrix);
       }
       matrix.needsUpdate = true;
+      this.bookmarkCovers?.sync(this.instances[0], this.themeAttribute!, this.cells.map(fileAtCell));
       this.scene.updateMatrixWorld(true);
       await this.renderer.compileAsync(this.scene, this.camera);
       const compiled = performance.now();
@@ -581,7 +606,7 @@ export class ArchiveScene {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     const label = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.99, 0.46),
+      bookmarkCatalog ? coverGeometry() : new THREE.PlaneGeometry(0.99, 0.46),
       new THREE.MeshBasicMaterial({
         map: texture,
         toneMapped: false,
@@ -589,7 +614,8 @@ export class ArchiveScene {
         depthWrite: false,
       }),
     );
-    label.position.set(-1.36, 3.04, 0.255);
+    if (!bookmarkCatalog) label.position.set(-1.36, 3.04, 0.255);
+    if (bookmarkCatalog) label.visible = coverPreferences.logo || coverPreferences.title;
     label.userData.assemblyPart = "cover";
     label.userData.themeAmount = themeMaterial(label.material, "Printed_Canvas");
     label.userData.themeAmount.value = this.themeAmount;
@@ -616,7 +642,7 @@ export class ArchiveScene {
     if (mode !== "archive") this.pendingPulse = null;
     this.looping = mode !== "hidden";
     if (!this.looping) {
-      const canonical = fileLocation(fileAtSlot(this.selectedSlot));
+      const canonical = fileLocation(this.selectedIndex);
       this.selectedCell = { lane: canonical.lane, row: canonical.row };
       this.coordinateOrigin = { lane: 0, row: 0 };
       for (const old of this.outgoing) {
@@ -684,15 +710,18 @@ export class ArchiveScene {
     );
   }
   private rebaseCoordinates() {
+    // Different folder lengths have no small shared row period. Keep their
+    // logical rows intact; column rebasing still repeats the complete catalog.
+    const lanePeriod = archiveColumns.length;
     // Periodically reduce the logical coordinates while preserving every
     // relative position, spring velocity, ripple and idle phase.
     const shift = {
       lane:
         Math.abs(this.selectedCell.lane) > 2048
-          ? Math.round((this.selectedCell.lane - 2) / 5) * 5
+          ? Math.round((this.selectedCell.lane - 2) / lanePeriod) * lanePeriod
           : 0,
       row:
-        Math.abs(this.selectedCell.row) > 2048
+        !bookmarkCatalog && Math.abs(this.selectedCell.row) > 2048
           ? Math.floor((this.selectedCell.row - 12) / 8) * 8
           : 0,
     };
@@ -721,6 +750,7 @@ export class ArchiveScene {
     }
   }
   select(index: number, navigation?: ArchiveNavigation) {
+    this.selectedIndex = index;
     if (!this.navigatingDrag) this.cancelPointer();
     this.setHover(null);
     this.lastInteraction = this.clock;
@@ -794,6 +824,14 @@ export class ArchiveScene {
   private drawLabel(index: number) {
     if (!this.labelTexture) return;
     const c = this.labelCanvas.getContext("2d")!;
+    if (bookmarkCatalog) {
+      bookmarkIcon(records[index], coverPreferences.logo);
+      paintBookmarkCover(c, records[index], 1024, 440);
+      const label = this.model.children.at(-1);
+      if (label) label.visible = coverPreferences.logo || coverPreferences.title;
+      this.labelTexture.needsUpdate = true;
+      return;
+    }
     c.fillStyle = "#e6e2d9";
     c.fillRect(0, 0, 1024, 440);
     c.fillStyle = "#171713";
@@ -1696,6 +1734,7 @@ export class ArchiveScene {
     // renderer culling and do not need an O(n) bound recomputation each frame.
     if (matricesChanged || countChanged || !this.instances[0].boundingSphere) this.instances[0].computeBoundingSphere();
     this.themeUpdates?.commit();
+    this.bookmarkCovers?.sync(this.instances[0], this.themeAttribute!, this.drawnCells.map(fileAtCell));
     let neighborTop = -Infinity;
     const lane = selectedLane,
       row = selectedRow;
@@ -1833,7 +1872,7 @@ export class ArchiveScene {
       pulses: this.pulses.map((pulse) => ({ ...pulse })),
       referenceTime: Math.round((this.scanTime + 5) * 100) / 100,
       selectedSlot: this.selectedSlot,
-      selectedLane: Math.floor(this.selectedSlot / 32),
+      selectedLane: this.selectedCell.lane,
       selectedCell: { ...this.selectedCell },
       hoverCell: this.hoverCell ? { ...this.hoverCell } : null,
       hoverLifts: Object.fromEntries(this.hoverLifts),

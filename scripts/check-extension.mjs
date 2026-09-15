@@ -6,7 +6,7 @@ const files = (await readdir(root, { recursive: true })).map(p => p.replaceAll('
 const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.chrome_url_overrides.newtab, 'index.html');
-assert.equal(manifest.permissions?.length ?? 0, 0, 'This phase needs no browser data permissions');
+assert.deepEqual(manifest.permissions?.toSorted(), ['bookmarks', 'favicon']);
 assert.equal(manifest.host_permissions?.length ?? 0, 0);
 assert.ok(!manifest.background, 'No permanent background process is needed');
 for (const path of Object.values(manifest.icons)) await access(join(root, path));
