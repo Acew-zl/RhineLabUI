@@ -3,7 +3,7 @@
 ## Cloudflare 托管迁移
 
 - 用户于 2026-09-15 授权将正式网站迁到 Cloudflare Pages，保留 `rhine.lubeiluchen.cc`，并明确授权通过浏览器修改阿里云 DNS。项目名为 `rhine-lab-ui`，沿用正式 main 的原生实现与视觉规范。
-- `npm run build:cloudflare` 生成完整静态发行包，校验本机授权 Novecento 字体并转换缓存规则；字体仍不进入 Git。后续使用直接上传或 Wrangler 更新，部署与域名记录见 `docs/CLOUDFLARE-DEPLOYMENT.md`。
+- `npm run build:cloudflare` 生成完整静态发行包，校验授权 Novecento 字体并转换缓存规则；字体仍不进入 Git。用户随后授权连接 `LBEILC/RhineLabUI` 的 `main` 自动部署，Pages 输出为 `release/cloudflare/site`；官方项目构建从当前生产网站恢复并校验授权字体。部署与域名记录见 `docs/CLOUDFLARE-DEPLOYMENT.md`。
 
 - 2026-09-11：官网已独立集成 Novecento 开场字体；授权 kit 不进入 Git。正式 Vercel 项目在构建时从当前生产版本恢复并校验字体，首次部署使用本机授权 kit 的静态输出。见 verification/WEBFONT-DEPLOYMENT.md。
 

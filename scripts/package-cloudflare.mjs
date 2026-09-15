@@ -7,7 +7,8 @@ import { dirname, resolve, sep } from 'node:path';
 const source = resolve('dist');
 const metadata = JSON.parse(await readFile(resolve(source, 'pwa-build.json'), 'utf8'));
 if (!/^[a-f0-9]{16}$/.test(metadata.version)) throw Error('Invalid PWA release version.');
-const output = resolve('release/cloudflare', metadata.version);
+// Pages Git builds need a stable output path; each hosted build starts clean.
+const output = resolve('release/cloudflare', process.env.CF_PAGES === '1' ? 'site' : metadata.version);
 const fonts = JSON.parse(await readFile('verification/boot-lettering/webfont-sources.json', 'utf8'));
 for (const [weight, font] of Object.entries(fonts)) {
   const path = `fonts/novecento/webFonts/NovecentoSansWide${weight}/font.woff2`;

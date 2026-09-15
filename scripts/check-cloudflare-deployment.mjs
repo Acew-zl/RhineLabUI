@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 const base = new URL(process.argv[2]);
 if (base.protocol !== 'https:' && base.hostname !== '127.0.0.1') throw Error('Use HTTPS for remote verification.');
 const latest = JSON.parse(await readFile('release/cloudflare/latest.json', 'utf8'));
-const directory = resolve('release/cloudflare', latest.version);
+const directory = resolve(latest.directory);
 const expected = JSON.parse(await readFile(resolve(directory, 'pwa-build.json'), 'utf8'));
 const response = await fetch(new URL('pwa-build.json', base), { cache: 'no-store', signal: AbortSignal.timeout(30000) });
 if (!response.ok) throw Error(`Manifest HTTP ${response.status}`);

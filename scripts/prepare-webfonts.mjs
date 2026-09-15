@@ -2,9 +2,14 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 
-// This is the license owner's existing Vercel project, not a font source for
-// third-party forks. Other checkouts retain the authored phrase artwork.
-const officialBuild = process.env.VERCEL_PROJECT_ID === 'prj_KyOQlIfl3qhHkI4SUpiD5tbFTE5w';
+// Restore only in the owner's hosting projects. Forks keep the phrase artwork.
+let officialPagesBuild = false;
+if (process.env.CF_PAGES === '1' && process.env.CF_PAGES_URL) {
+  const host = new URL(process.env.CF_PAGES_URL).hostname;
+  officialPagesBuild = host === 'rhine-lab-ui.pages.dev' || host.endsWith('.rhine-lab-ui.pages.dev');
+}
+const officialBuild = officialPagesBuild ||
+  process.env.VERCEL_PROJECT_ID === 'prj_KyOQlIfl3qhHkI4SUpiD5tbFTE5w';
 const sources = JSON.parse(await readFile(new URL('../verification/boot-lettering/webfont-sources.json', import.meta.url), 'utf8'));
 const files = [
   ...Object.entries(sources).map(([weight, source]) => ({

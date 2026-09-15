@@ -1,5 +1,13 @@
 # Cloudflare Pages 部署
 
+## Git 自动部署
+
+生产仓库为 `LBEILC/RhineLabUI`，分支 `main`，构建命令 `npm run build:cloudflare`，输出目录 `release/cloudflare/site`，根目录为仓库根目录。Pages 注入 `CF_PAGES=1` 时打包到固定输出目录；本机构建继续使用版本号目录。
+
+Pages 官方项目 URL 为 `rhine-lab-ui.pages.dev` 或其预览子域时，构建脚本从当前正式网站恢复三份授权 WOFF2 和原 CSS，逐个校验 SHA-256。恢复失败中止构建，保留正在服务的上一版本。授权字体不提交到 Git；其他 Pages 项目不自动恢复该字体。首次建站仍使用本机授权 kit 引导部署。
+
+当前控制台支持为已有直接上传项目连接 Git 仓库，无需新建项目或更改 DNS；此流程以控制台实际提供的功能为准。
+
 ## 构建
 
 从正式 main 版本构建，安装项目依赖及本机已授权的 Novecento Webfont kit 后执行：
@@ -42,6 +50,6 @@ node scripts/check-cloudflare-deployment.mjs https://rhine.lubeiluchen.cc/
 
 切换期间内置浏览器仍短暂命中旧 Vercel DNS 缓存，Edge 与公开 DNS 已使用新记录。短时间仍见暂停提示的访客可等待原 10 分钟 TTL 到期后重开页面；这不需要清除收藏或网站数据。
 
-验证完成后部署工具与说明同步到 main。该 Pages 项目采用直接上传，Git 推送本身不会自动更新 Cloudflare；下一次发布仍需构建并上传经过验证的发行包。
+首次迁移使用直接上传，之后用户授权接入 Git 自动部署。自动构建配置及验证结果以本文“Git 自动部署”部分为准。
 
 回退 DNS 可恢复原记录，但原 Vercel 服务因额度超限暂停，回退本身不会解除暂停。
