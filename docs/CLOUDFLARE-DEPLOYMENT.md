@@ -38,6 +38,10 @@ node scripts/check-cloudflare-deployment.mjs https://rhine.lubeiluchen.cc/
 
 2026-09-15 已通过浏览器将 `rhine` CNAME 提交为 `rhine-lab-ui.pages.dev`，保持默认线路、10 分钟 TTL、权重 1 和启用状态，备注改为 `Rhine Lab UI · Cloudflare Pages`。
 
-首版 PWA 版本为 `c4ceb4fc0bf3994d`。Pages 地址线上校验 825 个文件，字节全部匹配；检查了更新文件不存储、模型不可变缓存、缺失资源 404，以及实际三维详情画面。原域名激活和访问状态见后续验证记录。
+首版 PWA 版本为 `c4ceb4fc0bf3994d`。Pages 地址与正式域名各校验 825 个文件，字节全部匹配；检查了更新文件不存储、模型不可变缓存和缺失资源 404。2026-09-15 20:05（UTC+8）正式域名返回 HTTP 200、`Server: cloudflare`，控制台显示“活动、SSL 已启用”。Edge 实际打开原域名，完成开场、阵列、档案详情和 360° 模型加载与画面检查。
+
+切换期间内置浏览器仍短暂命中旧 Vercel DNS 缓存，Edge 与公开 DNS 已使用新记录。短时间仍见暂停提示的访客可等待原 10 分钟 TTL 到期后重开页面；这不需要清除收藏或网站数据。
+
+验证完成后部署工具与说明同步到 main。该 Pages 项目采用直接上传，Git 推送本身不会自动更新 Cloudflare；下一次发布仍需构建并上传经过验证的发行包。
 
 回退 DNS 可恢复原记录，但原 Vercel 服务因额度超限暂停，回退本身不会解除暂停。

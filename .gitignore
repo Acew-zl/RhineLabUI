@@ -25,3 +25,4 @@ reference/local-files-connection.js
 # Individually licensed MyFonts kit; install locally, never publish to Git.
 public/fonts/novecento/
 .vercel/
+.wrangler/
