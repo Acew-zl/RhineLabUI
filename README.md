@@ -1,5 +1,7 @@
 # RHINE LAB · ANALYSIS OS
 
+本 Fork 正在改造为浏览器起始页。第一轮已实现本地资源打包的 Manifest V3 扩展和开场三维预热；安装与验收见 **[浏览器扩展说明](docs/EXTENSION.md)**。构建命令：`npm run build:extension`，输出：`release/extension`。书签与搜索功能尚未接入。
+
 **把莱茵生命的终端，做成可以操作的三维界面。**
 
 **[在线体验 → rhine.lubeiluchen.cc](https://rhine.lubeiluchen.cc/)**

@@ -13,15 +13,22 @@ const hasNovecento = ["Normal", "DemiBold", "Bold"].every(weight =>
   existsSync(`public/fonts/novecento/webFonts/NovecentoSansWide${weight}/font.woff2`),
 );
 export default defineConfig(({ mode }) => ({
-  base: mode === "wallpaper" ? "./" : "/",
+  base: mode === "wallpaper" || mode === "extension" ? "./" : "/",
+  build: { copyPublicDir: mode !== "extension" },
   define: {
     __RHINE_MODELS__: JSON.stringify(Object.fromEntries(models.map(model => [model.key,model.fileName]))),
-    __RHINE_NOVECENTO__: JSON.stringify(hasNovecento),
+    __RHINE_NOVECENTO__: JSON.stringify(hasNovecento && mode !== "extension"),
   },
   plugins: [{
     name: "versioned-model-assets", apply: "build",
     buildStart() { for (const model of models) this.emitFile({type:"asset",fileName:model.fileName,source:model.source}); },
-  }, ...(mode === "wallpaper" ? [{
+  }, ...(mode === "extension" ? [{
+    name: "extension-host",
+    transformIndexHtml(html: string) {
+      return html.replace(/\s*<link rel="(?:manifest|apple-touch-icon)"[^>]*>/g, "")
+        .replace('href="/favicon.svg"', 'href="./favicon.svg"');
+    },
+  }] : []), ...(mode === "wallpaper" ? [{
     name: "wallpaper-host",
     transformIndexHtml(html: string) {
       return { html: html.replace(/\s*<link rel="manifest"[^>]*>/, ""), tags: [{

@@ -1,4 +1,6 @@
 #viewport > .loading { position: fixed; }
+.presentation-status { position: fixed; z-index: 100; left: 50%; bottom: 8%; transform: translateX(-50%); max-width: calc(100vw - 40px); padding: 14px 22px; border-block: 1px solid #969183; background: #eeece4; color: #383930; text-align: center; font-size: 13px; }
+.presentation-status[hidden] { display: none; }
 .entry-controls { display: flex; align-items: center; flex-direction: column; margin-top: 32px; max-width: calc(100vw - 40px); text-align: center; }
 .entry-start { min-height: 48px; padding: 8px 24px; border-block: 1px solid #969183; font-size: 16px; letter-spacing: 2px; }
 .entry-start:disabled, .entry-start[aria-disabled="true"] { color: #888277; cursor: wait; }

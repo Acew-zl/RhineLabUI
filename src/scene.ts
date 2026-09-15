@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { yieldPreparation } from "./presentation-preparation";
 import { ArchiveVisibility } from "./archive-visibility";
 import { InstanceUpdates } from "./instance-updates";
 import { RenderState } from "./render-state";
@@ -493,6 +494,52 @@ export class ArchiveScene {
   }
 
   private assemblyTemplate?: Promise<THREE.Group>;
+  async preparePresentation() {
+    if (!this.loaded) throw new Error("Load the archive before preparing its presentation");
+    const started = performance.now();
+    const matrix = this.instances[0].instanceMatrix;
+    const original = matrix.array.slice();
+    const transform = new THREE.Object3D();
+    const bokeh = this.bokeh.enabled, smaa = this.smaa.enabled;
+    try {
+      // Populate real instances for GPU upload without advancing springs, the
+      // camera or the authored timeline. The same renderer is used on entry.
+      for (let i = 0; i < this.cells.length; i++) {
+        transform.position.copy(this.cellPosition(this.cells[i]));
+        transform.updateMatrix();
+        this.instances[0].setMatrixAt(i, transform.matrix);
+      }
+      matrix.needsUpdate = true;
+      this.scene.updateMatrixWorld(true);
+      await this.renderer.compileAsync(this.scene, this.camera);
+      const compiled = performance.now();
+      await yieldPreparation();
+      if (this.labelTexture) this.renderer.initTexture(this.labelTexture);
+      this.renderer.shadowMap.needsUpdate = true;
+      this.renderer.render(this.scene, this.camera);
+      await yieldPreparation();
+      if (!this.superPerformance) {
+        // Warm AO separately from depth of field / antialiasing to spread the
+        // first-use work across tasks while the 2D opening covers the canvas.
+        this.bokeh.enabled = false;
+        this.smaa.enabled = false;
+        this.composer.render();
+        await yieldPreparation();
+        this.bokeh.enabled = bokeh;
+        this.smaa.enabled = smaa;
+        this.composer.render();
+      }
+      return { compileMs: compiled - started, totalMs: performance.now() - started };
+    } finally {
+      this.bokeh.enabled = bokeh;
+      this.smaa.enabled = smaa;
+      matrix.array.set(original);
+      matrix.needsUpdate = true;
+      this.renderer.setRenderTarget(null);
+      this.renderState.invalidate();
+    }
+  }
+
   async createAssemblyModel() {
     this.assemblyTemplate ??= new GLTFLoader()
       .loadAsync(publicAsset("assets/archive-assembly.glb"))

@@ -31,6 +31,7 @@ import {
 import { TerminalAudio } from "./audio";
 import { audioSettingsMarkup } from "./audio-settings";
 import { StartupGate } from "./startup";
+import { preparedBootTime, yieldPreparation } from "./presentation-preparation";
 import { isWallpaper, wallpaperHost, wallpaperFrame, type WallpaperProperties } from "./wallpaper";
 import "./startup.css";
 import "./wallpaper.css";
@@ -211,6 +212,20 @@ function configureAudio() { audio.configure({ ...prefs, music: prefs.music && !m
 configureAudio();
 const reviewEntry = reviewParams.has("scene") || reviewParams.has("time") || reviewParams.get("review") === "1";
 let started = false;
+let bootReady = false;
+let pendingEntry: Mode | undefined;
+const prepareDuringOpening = !isWallpaper && !reviewEntry;
+const preparation = { phase: "loading", compileMs: 0, totalMs: 0, firstVisibleFrameMs: 0 };
+const preparationStatus = document.createElement("div");
+preparationStatus.className = "presentation-status";
+preparationStatus.setAttribute("role", "status");
+preparationStatus.hidden = true;
+$("#viewport").append(preparationStatus);
+function showPreparation() {
+  if (preparation.phase === "error") return;
+  preparationStatus.hidden = false;
+  preparationStatus.textContent = "正在准备三维档案…";
+}
 const loading = $("#loading");
 // The entry screen uses the actual viewport, including portrait phones; the
 // reference animation still uses its calibrated 1920 x 1080 stage.
@@ -331,6 +346,11 @@ $("#file-ticks").innerHTML = columnFiles(fileLocation(selected).lane)
 const fileTicks = [...$("#file-ticks").querySelectorAll<HTMLButtonElement>("button")];
 
 function setMode(next: Mode) {
+  if (next !== "boot" && !ready) {
+    pendingEntry = next;
+    showPreparation();
+    return;
+  }
   if (workbench?.enabled && next === "detail") next = "archive";
   const previousMode = mode;
   rollingTitles.forEach(title => title.update({ animated: !prefs.reduced && next === "archive" }));
@@ -810,7 +830,7 @@ document.addEventListener("keydown", (e) => {
   const typing = e.target instanceof HTMLInputElement;
   if (e.key === "Escape") {
     if (modal) closeModal();
-    else if (mode === "detail" || (mode === "boot" && ready)) { const sound = mode === "detail" ? "back" : "ui-tick"; setMode("archive"); audio.play(sound); }
+    else if (mode === "detail" || mode === "boot") { const sound = mode === "detail" ? "back" : "ui-tick"; setMode("archive"); audio.play(sound); }
     return;
   }
   if (modal && e.key === "Tab") {
@@ -948,13 +968,26 @@ function frame(ms: number) {
   paintTheme(theme);
   viewer?.setTheme(theme);
   playground?.tick(time);
+  let bootTime = frozenTime ?? time - bootStart;
+  if (mode === "boot" && !ready && frozenTime === null) {
+    const held = preparedBootTime(bootTime, false);
+    if (held < bootTime) {
+      bootStart += bootTime - held;
+      bootTime = held;
+      showPreparation();
+    }
+  }
   const cinema =
-    mode === "boot" && ready
-      ? bootFrame(frozenTime ?? time - bootStart)
+    mode === "boot" && bootReady && !(pendingEntry && prefs.reduced)
+      ? bootFrame(bootTime)
       : undefined;
   wallpaperEffects?.update(time, prefs.reduced);
   // The calibrated 2D opening fully covers the scene until array entry.
-  if (!viewer?.isOpen && (!cinema || cinema.time >= 21.9)) scene?.update(time, cinema);
+  if (ready && !viewer?.isOpen && (!cinema || cinema.time >= 21.9)) {
+    const before = performance.now();
+    scene?.update(time, cinema);
+    if (!preparation.firstVisibleFrameMs) preparation.firstVisibleFrameMs = performance.now() - before;
+  }
   viewer?.update(time);
   if (threeState === "closing" && scene?.presentationHidden) releaseThree();
   playground?.position();
@@ -984,6 +1017,7 @@ function frame(ms: number) {
     frameCount = 0;
     $("#three-scene").dataset.fps = String(Math.round(fps));
     $("#three-scene").dataset.renderStats = JSON.stringify(scene?.getStats() ?? { loaded: false, drawCalls: 0, triangles: 0 });
+    $("#three-scene").dataset.preparation = JSON.stringify({ ...preparation, ready, mode, bootTime: mode === "boot" ? bootTime : null });
   }
   requestAnimationFrame(frame);
 }
@@ -1082,18 +1116,16 @@ async function toggleThree() {
 }
 
 async function start() {
+  let failed = false;
+  const offerEntry = () => {
+    if (failed) return;
+    bootReady = true;
+    if (entry) entry.ready();
+    else completeStartup(false);
+  };
   try {
     if (isWallpaper) await window.rhineWallpaperPropertiesReady;
-    if (!isWallpaper || wallpaperHost()?.properties.load3donstartup?.value !== false) {
-      scene = new ArchiveScene($("#three-scene"));
-      scene.setTheme(prefs.colorTheme === "dark", true);
-      scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");
-    } else {
-      threeState = "off";
-      syncThreeButton();
-    }
-    await Promise.all([
-      scene?.load(),
+    const fonts = Promise.all([
       loadBootWebfonts(),
       // With unicode-range faces, preload the opening's actual characters,
       // not every font shard. Other archive text loads on demand.
@@ -1101,27 +1133,59 @@ async function start() {
       document.fonts.load("400 20px MiSans", "身份信息确认请求已接收开始处理权限验证通过欢迎访问莱茵生命内部资料档案编号保密级别商业区选择档案：0123456789 JOYCE MOORE"),
       document.fonts.load("600 20px MiSans", "SYNTHESIZE INFORMATION ANALYSIS OS"),
       document.fonts.load("700 20px MiSans", "RHINE LAB WELCOME TO INTERNAL DATABASE"),
-    ]);
-    if (scene) bindScene(scene);
-    savePrefs();
-    ready = true;
-    select(0);
-    if (entry) entry.ready();
-    else {
+    ]).then(() => { if (prepareDuringOpening) offerEntry(); });
+    const three = (async () => {
+      await yieldPreparation();
+      if (!isWallpaper || wallpaperHost()?.properties.load3donstartup?.value !== false) {
+        scene = new ArchiveScene($("#three-scene"));
+        scene.setTheme(prefs.colorTheme === "dark", true);
+        scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");
+        await scene.load();
+        // Canvas labels must use the loaded font, even when the GLB arrives first.
+        await fonts;
+        if (failed) return;
+        bindScene(scene);
+      } else {
+        threeState = "off";
+        syncThreeButton();
+      }
+      savePrefs();
+      select(0);
+      if (scene && (prepareDuringOpening || reviewParams.get("prewarm") === "1")) {
+        preparation.phase = "warming";
+        Object.assign(preparation, await scene.preparePresentation());
+      }
+      if (failed) return;
+      ready = true;
+      preparation.phase = "ready";
+      preparationStatus.hidden = true;
+      if (pendingEntry && started) {
+        const target = pendingEntry;
+        pendingEntry = undefined;
+        setMode(target);
+      }
+    })();
+    await Promise.all([fonts, three]);
+    if (!prepareDuringOpening) {
       if (isWallpaper) {
         // CEF allows automatic audio; never block the visual on audio policy or decoding.
         await Promise.race([audio.unlock(), new Promise(resolve => setTimeout(resolve, 3000))]);
       }
-      completeStartup(false);
+      offerEntry();
     }
   } catch (error) {
+    failed = true;
+    preparation.phase = "error";
     console.error(error);
-    $("#loading").innerHTML =
-      '<div class="error-state"><strong>CONNECTION INTERRUPTED</strong><p>三维档案资源未能载入。请确认浏览器已启用硬件加速，然后重新连接。</p><button onclick="location.reload()">RECONNECT →</button></div>';
+    const errorRoot = started ? preparationStatus : loading;
+    errorRoot.hidden = false;
+    errorRoot.inert = false;
+    errorRoot.innerHTML = '<div class="error-state"><strong>CONNECTION INTERRUPTED</strong><p>三维档案准备失败，请重新连接。若仍失败，请检查浏览器硬件加速。</p><button type="button">RECONNECT →</button></div>';
+    errorRoot.querySelector("button")!.addEventListener("click", () => location.reload());
   }
 }
 function completeStartup(silent: boolean) {
-  if (started || !ready) return;
+  if (started || !bootReady || preparation.phase === "error") return;
   started = true;
   if (silent) {
     prefs.sound = false;
@@ -1251,6 +1315,7 @@ Object.assign(window, {
       fps: Math.round(fps),
       mode,
       ready,
+      preparation: { ...preparation },
       startup: started ? "started" : entry?.phase ?? "loading",
       motion: { reduced: prefs.reduced, systemReduced: matchMedia("(prefers-reduced-motion: reduce)").matches },
       bootTime: mode === "boot" ? started ? (frozenTime ?? performance.now() / 1000 - bootStart) + 5 : 6.76 : null,
@@ -1262,4 +1327,3 @@ Object.assign(window, {
   },
 });
 if (import.meta.hot) import.meta.hot.dispose(() => audio.dispose());
-
