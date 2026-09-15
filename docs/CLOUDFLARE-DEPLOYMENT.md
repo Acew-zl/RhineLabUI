@@ -10,6 +10,14 @@ Pages 官方项目 URL 为 `rhine-lab-ui.pages.dev` 或其预览子域时，构�
 
 2026-09-15 已在控制台连接仓库，确认生产分支 `main`、自动部署启用、构建系统版本 3、命令和目录与上述一致。空目录恢复测试成功校验四个授权资源，模拟 Pages 环境构建输出 828 个文件。连接后的本次文档提交用于验证 Git 推送触发的首次托管构建。
 
+### 自动部署验证结果
+
+- 2026-09-15 20:19（UTC+8）：Git 提交 `4c8f62d` 自动触发部署 `8e956e3b-3dd1-4a8a-ae65-7b948b4e0d42`，状态 success，耗时 52 秒。部署地址 `https://8e956e3b.rhine-lab-ui.pages.dev/`，生产别名继续为 `rhine.lubeiluchen.cc`。
+- 构建环境 Node.js 22.16.0、npm 10.9.2；执行 npm clean-install 后构建成功，日志确认恢复并验证四个授权资源、生成 828 个发行文件、解析 9 条标头规则。
+- 生产 PWA 版本 `f3ab483c8b364c9e`。825 个应用文件验证通过；12 个文本文件仅存在 Windows／Linux 换行差异，其他内容与本地构建一致。按远程文件内容重新计算 PWA 版本哈希通过，Service Worker 代码及清单匹配，更新入口 no-store、模型 immutable 和缺失文件 404 均通过。
+- 本地直接上传包的版本号可能因换行差异而不同。下面的逐字节校验命令适用于本地包和该包的直接上传部署；Git 构建应以托管构建日志中的版本及跨平台内容校验为依据，不能把换行造成的版本变化视为资源丢失。
+- 后续正常推送 main 会自动发布。仅记录验证结果、不涉及产品内容的提交可按需使用 `[CF-Pages-Skip]` 前缀跳过冗余部署。
+
 ## 构建
 
 从正式 main 版本构建，安装项目依赖及本机已授权的 Novecento Webfont kit 后执行：
@@ -20,7 +28,7 @@ npm run build:cloudflare
 
 `release/cloudflare/latest.json` 指向本次版本目录。打包脚本从 PWA 资源清单生成静态发行包，验证三个字体的 SHA-256、单文件 25 MiB 与 20,000 文件限制；缺少授权字体直接停止。源码仓库继续排除字体 kit。
 
-Cloudflare Pages 项目名为 `rhine-lab-ui`，默认地址为 `https://rhine-lab-ui.pages.dev/`。可直接上传版本目录，或上传该目录内容生成的 ZIP。CLI 使用 `wrangler pages deploy <版本目录> --project-name rhine-lab-ui --branch main`。直接上传项目后续仍使用直接上传／Wrangler 更新，不依赖暂停中的 Vercel 来恢复字体。
+Cloudflare Pages 项目名为 `rhine-lab-ui`，默认地址为 `https://rhine-lab-ui.pages.dev/`。首次迁移通过上传版本目录内容生成的 ZIP 完成；连接 Git 后日常发布由推送自动触发。需要手动恢复时，可使用 `wrangler pages deploy <版本目录> --project-name rhine-lab-ui --branch main`，不依赖暂停中的 Vercel 来恢复字体。
 
 本次发行包共 828 个文件，浏览器上传成功。浏览器直接上传上限为 1,000 文件；资源增长后改用 Wrangler 上传（免费项目上限 20,000 文件）。
 
