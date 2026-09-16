@@ -15,7 +15,7 @@ import { viewportLayout, openingLayout } from "./viewport-layout";
 import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension } from './platform';
-import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine } from './bookmark-ui';
+import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch } from './bookmark-ui';
 import { saveCoverPreference } from './bookmark-covers';
 import './bookmarks.css';
 import { createRollingNumber, createRollingText } from "@kitlangton/rolling-number";
@@ -898,7 +898,8 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "/") {
     e.preventDefault();
     if (mode === "boot") setMode("archive");
-    openModal("search");
+    if (isExtension && mode === "archive") focusBookmarkSearch();
+    else openModal("search");
   }
   if (e.key === "ArrowLeft" && mode !== "boot") {
     e.preventDefault();

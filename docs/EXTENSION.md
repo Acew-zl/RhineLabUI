@@ -1,12 +1,12 @@
-# 浏览器起始页 · 0.2.0 书签版
+# 浏览器起始页 · 0.3.0 搜索与书签
 
 当前 Fork：[Acew-zl/RhineLabUI](https://github.com/Acew-zl/RhineLabUI)。本地 `origin` 指向此仓库，`upstream` 保留原作者仓库。
 
 Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案阵列动效和画质，扩展内将档案映射到浏览器书签栏，新增搜索框及书签封面。普通网页仍显示原档案。
 
-## 从 0.1.0 更新
+## 更新现有扩展
 
-本机 `release/extension` 已构建为 0.2.0。在扩展管理页找到 Rhine Lab，点击「重新加载」。若提示新增权限，允许书签和站点图标权限，再新建标签页。若你之前安装的是 ZIP 解压到其他位置的副本，需要用新版包替换那个目录，或重新加载本项目的 `release/extension`。
+本机 `release/extension` 已构建为 0.3.0。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.3.0 沿用 0.2.0 权限；如果从 0.1.0 更新，可能需要允许书签和站点图标权限。若你之前安装的是 ZIP 解压到其他位置的副本，需要用新版包替换那个目录，或重新加载本项目的 `release/extension`。
 
 旧警告保存在浏览器的扩展错误列表中，不会因源代码修复自动消失。清除旧日志后再新开标签页，检查是否产生新的错误。本次已将弃用的 `PCFSoftShadowMap` 改为 Three.js 实际使用的 `PCFShadowMap`，不改变已经生效的阴影类型。
 
@@ -20,6 +20,17 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 - 图标使用 Chromium 的本地 `_favicon` 接口，不向第三方图标服务发送书签网址。没有可用图标时使用名称首字符占位。只有实际进入可见范围或被选中的书签才请求图标。
 - 读取书签，不创建、修改或删除浏览器书签。当前页检测到书签改变后提供「刷新书签」，避免突然重播或打断操作；新开的标签页直接读取最新数据。
 - 左上搜索框支持搜索网络或输入 HTTP(S) 网址，搜索引擎可在设置选择 Bing、Google、百度。ARCHIVE INDEX 可按书签名称、网址和文件夹检索。书签脚本（`javascript:`）等可执行地址不会运行。
+
+## 搜索操作
+
+搜索栏位于品牌文字下方，复用档案检索的放大镜、MiSans 字体、直角细线和明暗配色；聚焦时底线展开，减少动态效果时直接显示。不会自动抢占浏览器地址栏焦点。
+
+- 阵列界面按 `/` 聚焦搜索栏。原 ARCHIVE INDEX 按钮仍打开完整档案索引；详情界面的 `/` 继续打开索引。
+- 输入关键词后直接按 Enter，或点击右侧箭头，使用当前引擎搜索网络。输入 HTTP(S) 网址则直接打开；不带协议的域名默认 HTTPS。本机 HTTP 服务须写 `http://`。
+- 搜索栏右上可选择 Bing、Google、百度，与设置中的搜索引擎同步，本地保存。
+- 输入时同时查找书签名称、网址和文件夹路径，支持多个词，完整名称及前缀匹配优先。最多显示五条本地匹配；上下键选择，Enter 打开选中的书签，也可直接点击结果。
+- Esc 依次收起列表、清空内容、退出输入；× 一键清空。中文组词期间不执行提交。输入与方向键不会同时触发三维选档。
+- 搜索文字不持久化、不请求远程联想；仅主动提交网络搜索时才将关键词交给选定引擎。打开书签或网址使用当前标签页。
 
 ## 安装验收
 
@@ -61,4 +72,4 @@ npm run preview:extension
 
 `dev:extension` 是带热更新的开发预览；`preview:extension` 在 `http://127.0.0.1:5190` 提供实际产物并使用相同 CSP。HTTP 页面没有书签权限；显式加 `?bookmarks-demo=1&scene=archive` 可使用样例数据，页面会标注「书签演示数据」。样例含嵌套、空文件夹和 45 条书签的列，不包含个人书签。HTTP 预览不等于真实扩展安装测试。普通网页继续使用 `npm run dev` / `npm run build`。
 
-验证记录见 [BOOKMARK-EXTENSION.md](../verification/BOOKMARK-EXTENSION.md)；第一轮预热验证保留于 [EXTENSION-PREPARATION.md](../verification/EXTENSION-PREPARATION.md)。
+第四阶段搜索与收尾验证见 [EXTENSION-SEARCH.md](../verification/EXTENSION-SEARCH.md)；书签验证见 [BOOKMARK-EXTENSION.md](../verification/BOOKMARK-EXTENSION.md)；第一轮预热验证保留于 [EXTENSION-PREPARATION.md](../verification/EXTENSION-PREPARATION.md)。

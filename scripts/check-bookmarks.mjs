@@ -3,13 +3,32 @@ import { test } from 'node:test';
 import { bookmarkColumns, bookmarkTarget } from '../src/bookmark-data.ts';
 import { installBookmarkCatalog, records, columnFiles } from '../src/data.ts';
 import { fileAtCell, selectionCell } from '../src/archive-loop.ts';
-import { searchTarget } from '../src/bookmark-search.ts';
+import { searchTarget, createBookmarkSearch } from '../src/bookmark-search.ts';
 test('web search encodes queries and only navigates HTTP(S) URLs directly', () => {
   assert.equal(searchTarget('   '),undefined);
   assert.equal(searchTarget('example.com/a'), 'https://example.com/a');
   assert.equal(searchTarget('https://example.com/a?q=x'), 'https://example.com/a?q=x');
   assert.equal(searchTarget('莱茵 生命 & logo', 'google'), 'https://www.google.com/search?q=' + encodeURIComponent('莱茵 生命 & logo'));
   assert.equal(searchTarget('javascript:alert(1)'), 'https://www.bing.com/search?q=javascript%3Aalert(1)');
+  assert.equal(searchTarget('example.com?q=a#b'), 'https://example.com/?q=a#b');
+  assert.equal(searchTarget('localhost:5190/a'), 'https://localhost:5190/a');
+  assert.equal(searchTarget('http://127.0.0.1:5190/'), 'http://127.0.0.1:5190/');
+  assert.equal(searchTarget('someone@example.com'), 'https://www.bing.com/search?q=someone%40example.com');
+  assert.equal(searchTarget('data:text/html,<script>'), 'https://www.bing.com/search?q=data%3Atext%2Fhtml%2C%3Cscript%3E');
+});
+test('local search ranks exact/prefix titles, matches all terms, and excludes unavailable targets', () => {
+  const find = createBookmarkSearch([
+    { title: 'Tools', bookmarkUrl: 'https://github.com', bookmarkFolder: '开发' },
+    { title: 'GitHub Docs', bookmarkUrl: 'https://docs.github.com', bookmarkFolder: '学习 / 文档' },
+    { title: 'GitHub', bookmarkUrl: 'https://github.com/me', bookmarkFolder: '开发' },
+    { title: 'GitHub 空列', empty: true },
+    { title: 'GitHub 脚本' },
+  ]);
+  assert.deepEqual(find('ＧＩＴＨＵＢ').map(r => r.title), ['GitHub', 'GitHub Docs', 'Tools']);
+  assert.deepEqual(find('文档 github').map(r => r.title), ['GitHub Docs']);
+  assert.equal(find('github', 1)[0].title, 'GitHub');
+  assert.deepEqual(find('missing'), []);
+  assert.deepEqual(find('   '), []);
 });
 const tree = [{id:'0', title:'', children:[{id:'1', title:'书签栏', children:[
   {id:'a', title:'自定义备注 <>&', url:'https://example.com/a'},

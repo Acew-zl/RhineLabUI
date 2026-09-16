@@ -1,18 +1,46 @@
-.bookmark-search { position: absolute; top: 230px; left: 60px; width: 440px; pointer-events: auto; }
-.bookmark-search label { display: block; font-size: 12px; letter-spacing: 2px; margin-bottom: 12px; }
-.bookmark-search > div { display: flex; border-block: 1px solid currentColor; align-items: center; }
-.bookmark-search input { min-width: 0; width: 100%; padding: 14px 0; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; font-size: 19px; }
-.bookmark-search input::placeholder { color: inherit; opacity: .6; }
-.bookmark-search:focus-within > div { border-bottom-width: 2px; }
-.bookmark-search button { min-width: 48px; min-height: 48px; font-size: 24px; }
+/* Search shares the archive directory's glyph, rules, type and theme. */
+.bookmark-search { position: absolute; z-index: 6; top: 264px; left: var(--edge); width: min(480px, 38%); pointer-events: auto; color: var(--theme-ink, #171713); }
+.bookmark-search-heading { display: flex; align-items: center; gap: 16px; height: 32px; font-size: 11px; letter-spacing: 1.6px; }
+.bookmark-search-heading label { margin-right: auto; }
+.bookmark-search select { min-height: 32px; border: 0; border-bottom: 1px solid var(--theme-line, #bdb8ad); background: transparent; color: inherit; font: inherit; letter-spacing: .5px; cursor: pointer; }
+.bookmark-search select:focus-visible { outline: 2px solid var(--theme-accent, #a67d48); outline-offset: 3px; }
+.bookmark-search option { background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); }
+.bookmark-search .search-field { position: relative; height: 62px; gap: 14px; background: transparent; border-bottom: 1px solid var(--theme-line, #969183); }
+.bookmark-search .search-field::after { content: ''; position: absolute; height: 2px; bottom: -1px; left: 0; right: 0; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 180ms ease-out; }
+.bookmark-search:focus-within .search-field::after { transform: scaleX(1); }
+.bookmark-search .search-field input { color: inherit; font-size: 18px; }
+.bookmark-search .search-field input::placeholder { font-size: 16px; color: var(--theme-muted, #77756d); }
+.bookmark-search .search-field > span:first-child { width: 22px; height: 22px; }
+.bookmark-search .search-field button { flex-shrink: 0; min-width: 40px; min-height: 44px; font-size: 24px; }
+.bookmark-search .search-submit { transition: transform 180ms ease-out; }
+.bookmark-search .search-submit:hover { transform: translate(2px, -2px); }
+.bookmark-search .search-clear { color: var(--theme-muted, #77756d); }
+.bookmark-search-popup { position: absolute; top: 100%; width: 100%; padding: 0 16px; color: var(--theme-ink, #171713); background: var(--theme-panel, #e6e2d9); border: 1px solid var(--theme-line, #bdb8ad); border-top: 0; animation: bookmark-search-enter 180ms ease-out; }
+.bookmark-search-caption { display: flex; justify-content: space-between; gap: 10px; padding: 14px 0 10px; font-size: 10px; letter-spacing: .7px; color: var(--theme-muted, #77756d); }
+.bookmark-search-caption span { letter-spacing: 0; }
+#bookmark-suggestions { max-height: min(350px, 38dvh); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+#bookmark-suggestions [role="option"] { display: block; width: 100%; position: relative; text-align: left; padding: 12px 14px; border-top: 1px solid var(--theme-line, #bdb8ad); min-height: 60px; cursor: pointer; }
+#bookmark-suggestions [role="option"]::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; background: currentColor; opacity: 0; }
+#bookmark-suggestions [role="option"]:is(:hover, [aria-selected="true"])::before { opacity: 1; }
+#bookmark-suggestions [role="option"]:is(:hover, [aria-selected="true"]) { background: var(--theme-field, #dcd8ce); }
+#bookmark-suggestions strong, #bookmark-suggestions small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#bookmark-suggestions strong { font-size: 15px; font-weight: 500; }
+#bookmark-suggestions small { margin-top: 5px; font-size: 10px; color: var(--theme-muted, #77756d); }
+.bookmark-search-empty { font-size: 12px; line-height: 1.8; color: var(--theme-muted, #77756d); margin: 0 0 16px; }
+.search-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.bookmark-search [hidden] { display: none !important; }
 .bookmark-inspect { display: block; margin-top: 18px; font-size: 14px; opacity: .75; }
-.bookmark-status { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: #e6e2d9; color: #171713; border-block: 1px solid #969183; }
+.bookmark-status { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); border-block: 1px solid var(--theme-line, #969183); }
 .bookmark-status[hidden] { display: none; }
 .bookmark-status button { margin-left: 12px; text-decoration: underline; }
 #bookmark-search-engine { background: transparent; color: inherit; padding: 8px; }
 [data-bookmarks="true"] #selected-title { min-width: 0; max-width: 85%; overflow: hidden; }
-[data-bookmarks="true"] .detail-title-cn { overflow-wrap: anywhere; }
-[data-bookmarks="true"] .detail-content h2 { overflow-wrap: anywhere; }
-@media (max-aspect-ratio: 4/5) {
-  .bookmark-search { top: 180px; left: 6%; width: 88%; }
-}
+[data-bookmarks="true"] :is(.detail-title-cn, .detail-content h2) { overflow-wrap: anywhere; }
+[data-layout="compact"] .bookmark-search { top: 96px; width: calc(48% - var(--edge)); }
+[data-layout="portrait"] .bookmark-search { top: 100px; width: calc(100% - 2 * var(--edge)); }
+:is([data-layout="compact"], [data-layout="portrait"]) .bookmark-search .search-field { height: 48px; gap: 8px; }
+:is([data-layout="compact"], [data-layout="portrait"]) .bookmark-search .search-field input { font-size: 16px; }
+:is([data-layout="compact"], [data-layout="portrait"]) .bookmark-search .search-field input::placeholder { font-size: 13px; }
+:is([data-layout="compact"], [data-layout="portrait"]) .bookmark-search-caption span { display: none; }
+@keyframes bookmark-search-enter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+.reduce-motion .bookmark-search * { animation: none !important; transition: none !important; }
