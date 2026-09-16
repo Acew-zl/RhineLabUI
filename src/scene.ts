@@ -276,6 +276,8 @@ export class ArchiveScene {
   private displayHeight = 0;
   private layoutKind = "";
   onSelect?: (index: number, cell?: ArchiveCell) => void;
+  onInspect?: () => void;
+  private get previewLift() { return bookmarkCatalog ? .8 : .4; }
   onHover?: (index: number | null) => void;
   onNavigate?: (axis: "row" | "lane", direction: number) => void;
   constructor(
@@ -1081,6 +1083,7 @@ export class ArchiveScene {
     let wheelTotal = 0,
       wheelTime = 0;
     const pointers = new Set<number>();
+    let lastSelectedClick: { key: string; time: number; x: number; y: number } | undefined;
     const hover = (e: PointerEvent) => {
       if (
         e.pointerType !== "mouse" ||
@@ -1182,6 +1185,7 @@ export class ArchiveScene {
       }
       if (cancelled) return;
       moved ||= Math.hypot(e.clientX - startX, e.clientY - startY) > 7;
+      if (moved) lastSelectedClick = undefined;
       if (browse) {
         if (!this.canBrowse()) {
           this.cancelPointer();
@@ -1220,7 +1224,15 @@ export class ArchiveScene {
           }
         } else if (!moved) {
           const cell = this.pickCell(e.clientX, e.clientY);
-          if (cell) this.onSelect?.(fileAtCell(cell), cell);
+          if (cell && !bookmarkCatalog) this.onSelect?.(fileAtCell(cell), cell);
+          else if (cell) {
+            const selected = sameCell(cell, this.selectedCell);
+            const key = cellKey(cell);
+            const double = e.pointerType === "mouse" && selected && lastSelectedClick?.key === key && e.timeStamp - lastSelectedClick.time < 450 && Math.hypot(e.clientX - lastSelectedClick.x, e.clientY - lastSelectedClick.y) < 7;
+            lastSelectedClick = e.pointerType === "mouse" && selected && !double ? { key, time: e.timeStamp, x: e.clientX, y: e.clientY } : undefined;
+            if (double) this.onInspect?.();
+            else if (!selected) this.onSelect?.(fileAtCell(cell), cell);
+          } else lastSelectedClick = undefined;
         }
       }
       reset();
@@ -1484,7 +1496,7 @@ export class ArchiveScene {
                     Math.abs(o.cell.row - selectedRow) < 5,
                 )
               ? 0
-              : 0.4 * this.targetReveal * (1 - this.flatMix),
+              : this.previewLift * this.targetReveal * (1 - this.flatMix),
           this.reduced
             ? 35
             : this.deferSelectionPulse &&
@@ -1500,7 +1512,7 @@ export class ArchiveScene {
       ? ease((this.lift.value - 0.8) / 2.4)
       : this.returnY !== null
         ? this.detail
-        : ease((this.lift.value - 0.4) / (INSPECTION_LIFT - 0.4));
+        : ease((this.lift.value - this.previewLift) / (INSPECTION_LIFT - this.previewLift));
     this.detail = cinematic
       ? cinematic.zoom
       : THREE.MathUtils.lerp(this.detail, cameraTarget, blend);
@@ -1698,7 +1710,7 @@ export class ArchiveScene {
     }
     const framing = archiveFraming(this.container.clientWidth, this.container.clientHeight, span, detail,
       this.container.closest<HTMLElement>("[data-layout]")?.dataset.layout === "compact");
-    if (bookmarkCatalog && !cinematic && !framing.portrait) framing.span /= 1 + .25 * (1 - detail);
+    if (bookmarkCatalog && !cinematic && !framing.portrait) framing.span /= 1 + .08 * (1 - detail);
     if (!cinematic) {
       const right = new THREE.Vector3()
         .crossVectors(new THREE.Vector3(0, 1, 0), viewDirection)
@@ -1717,7 +1729,7 @@ export class ArchiveScene {
       }
       if (bookmarkCatalog && !framing.portrait) {
         // Camera-only framing: retain physical extraction, row spacing and wave.
-        const previewAim = new THREE.Vector3(0, -4.6 + settlingWave(0, 26.56) + .4 + 1.85, -2.17);
+        const previewAim = new THREE.Vector3(0, -4.6 + settlingWave(0, 26.56) + this.previewLift + 1.85, -2.17);
         previewAim.addScaledVector(right, (0.5 - .36) * width / pixelScale);
         previewAim.addScaledVector(up, (.68 - .5) * height / pixelScale);
         cameraAim.copy(previewAim);

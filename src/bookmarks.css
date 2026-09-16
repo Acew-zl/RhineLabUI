@@ -49,7 +49,7 @@
 .reduce-motion .bookmark-search * { animation: none !important; transition: none !important; }
 /* Bookmark navigation keeps one focal group beside the selected glass file. */
 [data-bookmarks="true"] .bookmark-search { top: 68px; left: 50%; width: min(720px, 42%); transform: translateX(-50%); }
-[data-bookmarks="true"] .archive-callout { left: 68%; top: 39%; width: calc(32% - var(--edge)); display: flex; flex-direction: column; align-items: stretch; }
+[data-bookmarks="true"] .archive-callout { left: 74%; top: 39%; width: calc(26% - var(--edge)); display: flex; flex-direction: column; align-items: stretch; }
 [data-bookmarks="true"] .archive-callout .column-navigation { position: static; inset: auto; width: 100%; gap: 12px; padding-bottom: 22px; margin-bottom: 24px; border-bottom: 1px solid var(--theme-line, #bdb8ad); order: 0; }
 [data-bookmarks="true"] .column-navigation > div { flex: 1; min-width: 0; gap: 9px; overflow: hidden; }
 [data-bookmarks="true"] .column-navigation strong { display: block; font-size: 27px; font-weight: 600; overflow: hidden; }
@@ -69,7 +69,7 @@
 [data-bookmarks="true"]:is([data-mode="archive"], [data-mode="detail"]) .bookmark-readable-layer { visibility: visible; }
 /* Keep the top gradient behind search; the selected spine sits below it. */
 [data-bookmarks="true"][data-layout="compact"] .bookmark-search { top: 82px; width: 56%; }
-[data-bookmarks="true"][data-layout="compact"] .archive-callout { left: 66%; top: 34%; width: calc(34% - var(--edge)); }
+[data-bookmarks="true"][data-layout="compact"] .archive-callout { left: 69%; top: 34%; width: calc(31% - var(--edge)); }
 [data-bookmarks="true"][data-layout="compact"] .column-navigation strong { font-size: 19px; }
 [data-bookmarks="true"][data-layout="compact"] .archive-callout .column-navigation { padding-bottom: 10px; margin-bottom: 14px; gap: 6px; }
 [data-bookmarks="true"][data-layout="compact"] .column-navigation button { width: 36px; height: 40px; }
@@ -85,13 +85,29 @@
 [data-bookmarks="true"][data-layout="portrait"] .archive-callout .bookmark-inspect { margin-top: 4px; }
 
 [data-bookmarks="true"] .column-navigation strong { border-left: 4px solid var(--bookmark-column-color); padding-left: 10px; }
-[data-bookmarks="true"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(90deg, transparent 52%, rgba(232,229,225,.88) 70%); }
-[data-dark-surface="true"] [data-bookmarks="true"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(90deg, transparent 52%, rgba(var(--theme-paper-rgb),.88) 70%); }
-[data-bookmarks="true"][data-mode="archive"] .bookmark-readable-layer { mask-image: linear-gradient(90deg, #000 51%, transparent 69%); }
+[data-bookmarks="true"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(90deg, transparent 62%, rgba(232,229,225,.88) 78%); }
+[data-dark-surface="true"] [data-bookmarks="true"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(90deg, transparent 62%, rgba(var(--theme-paper-rgb),.88) 78%); }
+[data-bookmarks="true"][data-mode="archive"] .bookmark-readable-layer { mask-image: linear-gradient(90deg, #000 62%, transparent 77%); }
 [data-bookmarks="true"][data-layout="portrait"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(180deg, transparent 38%, rgba(232,229,225,.94) 55%); }
 [data-dark-surface="true"] [data-bookmarks="true"][data-layout="portrait"][data-mode="archive"] .archive-atmosphere { background: linear-gradient(180deg, transparent 38%, rgba(var(--theme-paper-rgb),.94) 55%); }
 [data-bookmarks="true"][data-layout="portrait"][data-mode="archive"] .bookmark-readable-layer { mask-image: linear-gradient(180deg, #000 35%, transparent 53%); }
 
-[data-bookmarks="true"][data-layout="desktop"] .archive-callout { width: min(500px, calc(32% - var(--edge))); }
+[data-bookmarks="true"][data-layout="desktop"] .archive-callout { width: min(460px, calc(26% - var(--edge))); }
 [data-bookmarks="true"][data-mode="archive"] .archive-atmosphere::before { background: linear-gradient(180deg, rgba(234,231,226,.98), rgba(234,231,226,.9) 15%, transparent 32%); }
 [data-dark-surface="true"] [data-bookmarks="true"][data-mode="archive"] .archive-atmosphere::before { background: linear-gradient(180deg, rgba(var(--theme-paper-rgb),.98), rgba(var(--theme-paper-rgb),.9) 15%, transparent 32%); }
+
+/* Paired primary actions share sizing and hit areas. */
+[data-bookmarks="true"] .bookmark-actions { order: 5; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; pointer-events: auto; }
+[data-bookmarks="true"] .archive-callout .bookmark-actions > button { display: flex; align-items: center; justify-content: space-between; align-self: stretch; width: 100%; min-height: 56px; margin: 0; padding: 0 14px; gap: 8px; border: 1px solid var(--theme-line, #a7a296); font-size: 15px; font-weight: 500; line-height: 1.3; letter-spacing: 0; opacity: 1; color: inherit; text-align: left; }
+[data-bookmarks="true"] .bookmark-actions > button > span { font-size: 20px; }
+[data-bookmarks="true"] .bookmark-actions > button:hover { background: var(--theme-field, #ddd8cd); }
+[data-bookmarks="true"] .bookmark-actions > button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+[data-bookmarks="true"]:is([data-layout="compact"], [data-layout="portrait"]) .archive-callout .bookmark-actions { margin-top: 12px; gap: 8px; }
+[data-bookmarks="true"]:is([data-layout="compact"], [data-layout="portrait"]) .archive-callout .bookmark-actions > button { min-height: 44px; font-size: 13px; padding: 0 10px; }
+#bookmark-startup-mode { max-width: 48%; background: transparent; color: inherit; padding: 8px; }
+[data-bookmarks="true"][data-direct-entry="true"][data-mode="boot"] :is(#boot, #boot-background, #skip, .archive-callout) { visibility: hidden; }
+[data-bookmarks="true"][data-layout="desktop"] .detail-content { left: 72%; width: calc(28% - var(--edge)); }
+[data-bookmarks="true"] .detail-content .metadata { display: none; }
+[data-bookmarks="true"]:not([data-layout="portrait"]) .archive-atmosphere::after { background: linear-gradient(90deg, transparent 57%, rgba(232,229,225,.25) 68%, rgba(232,229,225,.95) 76%, #e8e5e1 100%); }
+[data-dark-surface="true"] [data-bookmarks="true"]:not([data-layout="portrait"]) .archive-atmosphere::after { background: linear-gradient(90deg, transparent 57%, rgba(var(--theme-paper-rgb),.25) 68%, rgba(var(--theme-paper-rgb),.95) 76%, var(--theme-paper) 100%); }
+[data-bookmarks="true"][data-mode="detail"]:not([data-layout="portrait"]) .bookmark-readable-layer { mask-image: linear-gradient(90deg, #000 57%, transparent 75%); }

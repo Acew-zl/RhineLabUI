@@ -1,6 +1,7 @@
+import { bookmarkStartupReady, normalizeStartupMode } from '../src/bookmark-startup.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bookmarkColumns, bookmarkTarget } from '../src/bookmark-data.ts';
+import { bookmarkColumns, bookmarkTarget, bookmarkDisplayTitle } from '../src/bookmark-data.ts';
 import { installBookmarkCatalog, records, columnFiles } from '../src/data.ts';
 import { fileAtCell, selectionCell } from '../src/archive-loop.ts';
 import { searchTarget, createBookmarkSearch } from '../src/bookmark-search.ts';
@@ -132,4 +133,21 @@ test('bookmark names stay verbatim, including empty names and URL-looking titles
   const names = ['', '  自定义备注  ', 'https://my-saved-title.example/', '工作 <>&'];
   const catalog = bookmarkColumns([{ id: '0', title: '', children: [{ id: '1', title: '', children: names.map((title, i) => ({ id: String(i + 2), title, url: 'https://different-host.example/' })) }] }]);
   assert.deepEqual(catalog.records.map(record => record.title), names);
+});
+
+
+test('startup choices never expose an unprepared scene and full replay stays full', () => {
+  assert.equal(normalizeStartupMode('broken'), 'full');
+  for (const mode of ['full', 'brief', 'direct']) assert.equal(bookmarkStartupReady(mode, 100, false), false);
+  assert.equal(bookmarkStartupReady('full', 100, true), false);
+  assert.equal(bookmarkStartupReady('brief', 2, true), false);
+  assert.equal(bookmarkStartupReady('brief', 3, true), true);
+  assert.equal(bookmarkStartupReady('direct', 0, true), true);
+});
+test('unnamed bookmark body uses its URL without modifying the spine title', () => {
+  const record = { title: '', bookmarkUrl: 'https://example.com/path', abstract: 'raw' };
+  assert.equal(bookmarkDisplayTitle(record), record.bookmarkUrl);
+  assert.equal(record.title, '');
+  assert.equal(bookmarkDisplayTitle({ ...record, title: '自定义备注' }), '自定义备注');
+  assert.equal(bookmarkDisplayTitle({ title: '', abstract: 'chrome://settings' }), 'chrome://settings');
 });

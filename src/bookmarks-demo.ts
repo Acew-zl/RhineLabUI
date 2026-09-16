@@ -3,6 +3,7 @@ import type { BookmarkNode } from './bookmark-data';
 export const demoBookmarks: BookmarkNode[] = [{ id: '0', title: '', children: [{ id: '1', title: 'Bookmarks bar', children: [
   { id: '10', title: 'GitHub · 我的代码仓库', url: 'https://github.com/' },
   { id: '11', title: '哔哩哔哩', url: 'https://www.bilibili.com/' },
+  { id: '18', title: '', url: 'https://example.com/unnamed-bookmark' },
   { id: '12', title: '学习', children: [
     { id: '13', title: 'Three.js 文档', url: 'https://threejs.org/' },
     { id: '14', title: '参考资料', children: [{ id: '15', title: 'MDN Web Docs', url: 'https://developer.mozilla.org/' }] },

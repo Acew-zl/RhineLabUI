@@ -8,6 +8,11 @@ export interface BookmarkNode {
   children?: BookmarkNode[];
 }
 
+/** The archive's body may show a URL; the spine always retains the raw title. */
+export function bookmarkDisplayTitle(record: Pick<ArchiveRecord, 'title' | 'bookmarkUrl'> & { abstract?: string }) {
+  return record.title.trim() ? record.title : record.bookmarkUrl || record.abstract || '';
+}
+
 export function bookmarkTarget(value?: string) {
   if (!value) return undefined;
   try {

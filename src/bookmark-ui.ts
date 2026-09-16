@@ -1,3 +1,5 @@
+import { getBookmarkStartupMode } from './bookmark-startup';
+import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkStatus } from './bookmarks';
 import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
 import { searchTarget, searchEngines as engines, createBookmarkSearch } from './bookmark-search';
@@ -14,7 +16,7 @@ export function setSearchEngine(value: string) {
 }
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
 export function bookmarkSettingsMarkup() {
-  return `<label><div><strong>OPEN LINKS</strong><span>书签与搜索结果的打开方式；新标签页可保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label><label><div><strong>BOOKMARK LOGO</strong><span>在档案顶部朝上的书脊显示站点 Logo</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>BOOKMARK TITLE</strong><span>在顶部书脊显示浏览器保存的书签名称 / 备注</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>SEARCH ENGINE</strong><span>搜索框使用的搜索引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div>`;
+  return `<label><div><strong>STARTUP / 启动方式</strong><span>下次打开新标签页生效；简短动画在三维就绪后进入，直接进入仅保留加载提示。自动进入时声音在首次交互后启用。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[["full", "完整启动动画"], ["brief", "简短动画 · 就绪即进入"], ["direct", "直接进入三维档案"]].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label><div><strong>OPEN LINKS</strong><span>书签与搜索结果的打开方式；新标签页可保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label><label><div><strong>BOOKMARK LOGO</strong><span>在档案顶部朝上的书脊显示站点 Logo</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>BOOKMARK TITLE</strong><span>在顶部书脊显示浏览器保存的书签名称 / 备注</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>SEARCH ENGINE</strong><span>搜索框使用的搜索引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div>`;
 }
 export function mountBookmarkUI() {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
@@ -22,6 +24,7 @@ export function mountBookmarkUI() {
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
   const callout = document.querySelector('.archive-callout')!;
   callout.prepend(document.querySelector('.column-navigation')!);
+  document.querySelector('.archive-hint')!.textContent = '拖动浏览 · 双击选中档案查看详情 · Enter 打开书签';
   document.querySelector('#column-number')!.firstChild!.textContent = 'FOLDER / 文件夹 ';
   document.querySelector('[data-action="column-prev"]')!.setAttribute('aria-label', '上一个文件夹');
   document.querySelector('[data-action="column-next"]')!.setAttribute('aria-label', '下一个文件夹');
@@ -48,7 +51,7 @@ export function mountBookmarkUI() {
     matches = find(input.value); active = -1; list.replaceChildren(); input.removeAttribute('aria-activedescendant');
     matches.forEach((record, i) => {
       const row = document.createElement('button'); row.type = 'button'; row.tabIndex = -1; row.id = `bookmark-suggestion-${i}`; row.setAttribute('role', 'option'); row.setAttribute('aria-selected', 'false');
-      const title = document.createElement('strong'); title.textContent = record.title;
+      const title = document.createElement('strong'); title.textContent = bookmarkDisplayTitle(record);
       const path = document.createElement('small'); path.textContent = `${record.bookmarkFolder ?? ''} / ${record.bookmarkUrl}`;
       row.append(title, path); row.title = `${record.title}\n${record.bookmarkUrl}`;
       row.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
@@ -103,7 +106,10 @@ export function mountBookmarkUI() {
     status.innerHTML = '书签栏已更新 <button type="button">刷新书签 ↻</button>';
     status.querySelector('button')!.addEventListener('click', () => location.reload());
   });
-  document.querySelector('.archive-callout .read-file')!.insertAdjacentHTML('afterend', '<button class="bookmark-inspect" data-action="inspect-bookmark">查看档案详情 ↗</button>');
-  document.querySelector('.read-file')!.innerHTML = 'OPEN BOOKMARK <span>↗</span>';
+  const actions = document.createElement('div'); actions.className = 'bookmark-actions';
+  const open = document.querySelector('.archive-callout .read-file')!;
+  open.before(actions); actions.append(open);
+  open.innerHTML = '打开书签 <span>↗</span>';
+  actions.insertAdjacentHTML('beforeend', '<button class="bookmark-inspect" data-action="inspect-bookmark">档案详情 <span>→</span></button>');
   document.querySelector('#archive-ui')!.setAttribute('aria-label', '书签选择');
 }

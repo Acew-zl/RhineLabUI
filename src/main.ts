@@ -1,3 +1,5 @@
+import { getBookmarkStartupMode, setBookmarkStartupMode, bookmarkStartupReady } from './bookmark-startup';
+import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkColumnColor } from './bookmark-colors';
 import { createRollingClock } from "./rolling-clock";
 import { InspectionOverlay } from "./inspection-overlay";
@@ -223,6 +225,7 @@ const reviewEntry = reviewParams.has("scene") || reviewParams.has("time") || rev
 let started = false;
 let bootReady = false;
 let pendingEntry: Mode | undefined;
+let activeBookmarkStartup = getBookmarkStartupMode();
 const prepareDuringOpening = !isWallpaper && !reviewEntry;
 const preparation = { phase: "loading", compileMs: 0, totalMs: 0, firstVisibleFrameMs: 0 };
 const preparationStatus = document.createElement("div");
@@ -241,7 +244,7 @@ const loading = $("#loading");
 $("#viewport").append(loading);
 $("#stage").inert = true;
 $(".mobile-entry").inert = true;
-const entry = !isWallpaper && !reviewEntry && (prefs.sound || prefs.music) ? new StartupGate({
+const entry = !isWallpaper && !reviewEntry && (!isExtension || activeBookmarkStartup === "full") && (prefs.sound || prefs.music) ? new StartupGate({
   root: loading,
   unlock: () => audio.unlock(),
   cancel: () => audio.cancelEntry(),
@@ -400,6 +403,8 @@ function setMode(next: Mode) {
     bootSequence.reset();
     $(".file-title").firstChild!.textContent = "FILE NUMBER: ";
     $("#stage").dataset.boot = "done";
+    $(".callout-rule").style.removeProperty("transform");
+    if (isExtension && activeBookmarkStartup === "direct") scene?.revealImmediately();
   }
   if (next === "detail" && previousMode !== "detail") {
     renderDetail();
@@ -444,8 +449,8 @@ function updateSelection(navigation?: ArchiveNavigation) {
     $("#file-ticks").innerHTML = tickFiles.map(() => '<button type="button"></button>').join('');
     fileTicks = [...$("#file-ticks").querySelectorAll<HTMLButtonElement>('button')];
   }
-  selectionTitle.update({ text: r.title, animated: !prefs.reduced && mode === "archive" });
-  $("#selected-title").title = r.title;
+  selectionTitle.update({ text: isExtension ? bookmarkDisplayTitle(r) : r.title, animated: !prefs.reduced && mode === "archive" });
+  $("#selected-title").title = isExtension ? bookmarkDisplayTitle(r) : r.title;
   if (isExtension) $("#stage").style.setProperty("--bookmark-column-color", "#" + bookmarkColumnColor(r.category).getHexString());
   clearanceTitle.update({ text: r.clearance, animated: !prefs.reduced && mode === "archive" });
   categoryTitle.update({ text: r.category, animated: !prefs.reduced && mode === "archive" });
@@ -485,8 +490,8 @@ function updateSelection(navigation?: ArchiveNavigation) {
   fileTicks.forEach((button, slot) => {
     const index = tickFiles[slot], record = records[index];
     button.dataset.select = String(index);
-    button.setAttribute("aria-label", `选择档案 ${record.id} ${record.title}`);
-    button.title = `${record.id} · ${record.title}`;
+    button.setAttribute("aria-label", `选择档案 ${record.id} ${isExtension ? bookmarkDisplayTitle(record) : record.title}`);
+    button.title = `${record.id} · ${isExtension ? bookmarkDisplayTitle(record) : record.title}`;
     button.classList.toggle("selected", index === selected);
     button.setAttribute("aria-pressed", String(index === selected));
   });
@@ -497,6 +502,8 @@ function replayBoot(forcePreview = false) {
   closeModal(() => replayBootAfterModal(forcePreview));
 }
 function replayBootAfterModal(forcePreview: boolean) {
+  activeBookmarkStartup = "full"; // Explicit replay always plays the full authored opening.
+  delete $("#stage").dataset.directEntry;
   bootStart = performance.now() / 1000 - 1.76;
   frozenTime = null;
   lastStep = "";
@@ -686,7 +693,7 @@ function renderResults() {
     ? results
         .map(
           ({ r, i }) =>
-            `<button class="result-row" data-result="${i}"><span class="result-name"><b>${r.id}</b><span>${escapeHtml(r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`,
+            `<button class="result-row" data-result="${i}"><span class="result-name"><b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`,
         )
         .join("")
     : `<div class="empty-results"><span>∅</span><strong>${modal === "saved" && !searchQuery ? "尚无收藏档案" : "没有匹配的档案"}</strong><p>${modal === "saved" && !searchQuery ? "读取档案时，选择 SAVE ARCHIVE 将其保存在此处。" : "尝试其他名称、档案编号，或切换科室分类。"}</p><button data-action="reset-search">${modal === "saved" ? "查看全部档案 →" : "重置检索 →"}</button></div>`;
@@ -735,6 +742,7 @@ document.addEventListener("change", (e) => {
   }
   if (el.id === 'bookmark-search-engine') setSearchEngine(el.value);
   if (el.id === 'bookmark-open-mode') setBookmarkOpenMode(el.value);
+  if (el.id === 'bookmark-startup-mode') setBookmarkStartupMode(el.value);
   if (el.id === "quality-preset" && Object.hasOwn(qualityPresets, el.value)) {
     prefs.rendering = { ...qualityPresets[el.value as QualityPreset] };
     savePrefs();
@@ -1013,8 +1021,9 @@ function frame(ms: number) {
       showPreparation();
     }
   }
+  if (isExtension && mode === "boot" && !reviewEntry && bookmarkStartupReady(activeBookmarkStartup, bootTime, ready)) setMode("archive");
   const cinema =
-    mode === "boot" && bootReady && !(pendingEntry && prefs.reduced)
+    mode === "boot" && bootReady && !(isExtension && activeBookmarkStartup === "direct") && !(pendingEntry && prefs.reduced)
       ? bootFrame(bootTime)
       : undefined;
   wallpaperEffects?.update(time, prefs.reduced);
@@ -1058,6 +1067,7 @@ function frame(ms: number) {
   requestAnimationFrame(frame);
 }
 function bindScene(scene: ArchiveScene, cell?: { lane: number; row: number }) {
+    scene.onInspect = () => { if (mode === "archive" && !modal && !viewer?.isOpen) inspectFile(); };
     scene.select(selected, cell ? { cell } : undefined);
     scene.onSelect = (i, cell) => {
       if (mode !== "archive" || modal || viewer?.isOpen) return;
@@ -1235,6 +1245,10 @@ function completeStartup(silent: boolean) {
   bootStart = performance.now() / 1000 - (reviewParams.has("time") ? Number(reviewParams.get("time")) : 1.76);
   if (!reviewParams.has("time")) bootStart += fade / 1000;
   setMode("boot");
+  if (isExtension && !reviewEntry && activeBookmarkStartup === "direct") {
+    $("#stage").dataset.directEntry = "true";
+    setMode("archive");
+  }
   if (reviewParams.get("scene") === "archive" || (prefs.reduced && !reviewParams.has("time"))) setMode("archive");
   if (reviewParams.get("scene") === "detail") setMode("detail");
   if (isWallpaper && wallpaperHost()?.properties.boot?.value === false) setMode("archive");
