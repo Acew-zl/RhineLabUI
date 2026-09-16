@@ -4,6 +4,53 @@ import { bookmarkColumns, bookmarkTarget } from '../src/bookmark-data.ts';
 import { installBookmarkCatalog, records, columnFiles } from '../src/data.ts';
 import { fileAtCell, selectionCell } from '../src/archive-loop.ts';
 import { searchTarget, createBookmarkSearch } from '../src/bookmark-search.ts';
+import { bookmarkSpineGeometry } from '../src/bookmark-spine.ts';
+import { getBookmarkOpenMode, normalizeOpenMode, openBookmarkDestination, setBookmarkOpenMode } from '../src/bookmark-navigation.ts';
+import { loadBookmarkIcon } from '../src/bookmark-icon-loader.ts';
+
+test('favicon loading retries cached size/root candidates and decodes owned pixels', async () => {
+  const calls = [];
+  const result = await loadBookmarkIcon(['page32', 'page16', 'root32'], async url => {
+    calls.push(url);
+    if (url === 'page32') throw new Error('not available');
+    return new Blob([url]);
+  }, async blob => {
+    const text = await blob.text();
+    if (text === 'page16') throw new Error('decode error');
+    return { pixels: text };
+  });
+  assert.deepEqual(result, { pixels: 'root32' });
+  assert.deepEqual(calls, ['page32', 'page16', 'root32']);
+  await assert.rejects(loadBookmarkIcon([], async () => new Blob(), async () => null), /接口不可用/);
+});
+
+test('spine decal lies on the upward-facing top edge and never on the front or vertical side', () => {
+  const geometry = bookmarkSpineGeometry();
+  geometry.computeBoundingBox();
+  const { min, max } = geometry.boundingBox;
+  assert.ok(min.y > 3.7 && max.y < 3.71, 'Spine must face upward above the top rail');
+  assert.ok(min.x > -2.5 && max.x < 2.5 && min.z > -.113 && max.z < .197);
+  const normal = geometry.getAttribute('normal');
+  for (let i = 0; i < normal.count; i++) assert.ok(normal.getY(i) > .99);
+  const position = geometry.getAttribute('position'), uv = geometry.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) if (uv.getX(i) === 0) assert.ok(position.getX(i) < -2);
+  geometry.dispose();
+});
+
+test('new-tab default preserves the navigation page; current-tab is an explicit preference', () => {
+  assert.equal(getBookmarkOpenMode(), 'new-tab');
+  assert.equal(normalizeOpenMode('invalid'), 'new-tab');
+  const calls = [];
+  const host = { open: (...args) => calls.push(['new', ...args]), location: { assign: url => calls.push(['current', url]) } };
+  openBookmarkDestination('https://example.com', host);
+  assert.deepEqual(calls.pop(), ['new', 'https://example.com/', '_blank', 'noopener,noreferrer']);
+  setBookmarkOpenMode('current-tab');
+  openBookmarkDestination('https://example.com/page', host);
+  assert.deepEqual(calls.pop(), ['current', 'https://example.com/page']);
+  for (const url of ['javascript:alert(1)', 'data:text/html,hello', 'invalid']) openBookmarkDestination(url, host);
+  assert.equal(calls.length, 0);
+  setBookmarkOpenMode('new-tab');
+});
 test('web search encodes queries and only navigates HTTP(S) URLs directly', () => {
   assert.equal(searchTarget('   '),undefined);
   assert.equal(searchTarget('example.com/a'), 'https://example.com/a');

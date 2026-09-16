@@ -9,13 +9,19 @@ interface BookmarkAPI {
 }
 const host = (globalThis as typeof globalThis & { chrome?: { runtime?: { id?: string; getURL(path: string): string }; bookmarks?: BookmarkAPI } }).chrome;
 export let bookmarkStatus = '';
-export const faviconUrl = (pageUrl?: string) => {
+export const faviconUrl = (pageUrl?: string, size = 32) => {
   if (!pageUrl || !/^https?:/i.test(pageUrl) || !host?.runtime?.id) return undefined;
   const url = new URL(host.runtime.getURL('/_favicon/'));
   url.searchParams.set('pageUrl', pageUrl);
-  url.searchParams.set('size', '64');
+  url.searchParams.set('size', String(size));
   return url.href;
 };
+
+export function faviconSources(pageUrl: string) {
+  const candidates = [faviconUrl(pageUrl), faviconUrl(pageUrl, 16)];
+  try { candidates.push(faviconUrl(new URL(pageUrl).origin + '/')); } catch { /* Unsupported URL. */ }
+  return [...new Set(candidates.filter((value): value is string => !!value))];
+}
 
 export async function initializeBookmarks() {
   let tree: BookmarkNode[] = [];

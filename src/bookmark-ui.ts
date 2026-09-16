@@ -1,7 +1,8 @@
 import { bookmarkStatus } from './bookmarks';
-import { coverPreferences } from './bookmark-covers';
+import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
 import { searchTarget, searchEngines as engines, createBookmarkSearch } from './bookmark-search';
 import { records } from './data';
+import { getBookmarkOpenMode, openBookmarkDestination } from './bookmark-navigation';
 const engineNames = { bing: 'Bing', google: 'Google', baidu: '百度' };
 let engine: keyof typeof engines = 'bing';
 try { const saved = localStorage.getItem('rhine-search-engine'); if (saved && Object.hasOwn(engines, saved)) engine = saved as keyof typeof engines; } catch { /* Default. */ }
@@ -13,9 +14,11 @@ export function setSearchEngine(value: string) {
 }
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
 export function bookmarkSettingsMarkup() {
-  return `<label><div><strong>BOOKMARK LOGO</strong><span>在三维档案封面显示站点 Logo</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>BOOKMARK TITLE</strong><span>在封面显示浏览器保存的书签名称 / 备注</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>SEARCH ENGINE</strong><span>搜索框使用的搜索引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${{bing:'Bing',google:'Google',baidu:'百度'}[key]}</option>`).join('')}</select></label>`;
+  return `<label><div><strong>OPEN LINKS</strong><span>书签与搜索结果的打开方式；新标签页可保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label><label><div><strong>BOOKMARK LOGO</strong><span>在档案顶部朝上的书脊显示站点 Logo</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>BOOKMARK TITLE</strong><span>在顶部书脊显示浏览器保存的书签名称 / 备注</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>SEARCH ENGINE</strong><span>搜索框使用的搜索引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div>`;
 }
 export function mountBookmarkUI() {
+  onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
+  document.addEventListener('click', event => { if ((event.target as Element).closest('[data-retry-icons]')) retryBookmarkIcons(); });
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
   document.querySelector('.system-nav [data-action="search"] .key')?.remove();
   document.querySelector('#archive-ui')!.insertAdjacentHTML('beforeend', `<form class="bookmark-search" role="search" aria-label="网络与书签搜索"><div class="bookmark-search-heading"><label for="web-search">SEARCH / 检索</label><select data-search-engine aria-label="搜索栏引擎">${Object.entries(engineNames).map(([key, label]) => `<option value="${key}" ${engine === key ? 'selected' : ''}>${label}</option>`).join('')}</select><span class="key" aria-hidden="true">/</span></div><div class="search-field"><span aria-hidden="true">⌕</span><input id="web-search" type="text" role="combobox" aria-autocomplete="list" aria-controls="bookmark-suggestions" aria-expanded="false" autocomplete="off" spellcheck="false" placeholder="搜索、输入网址或查找书签" aria-label="搜索网络或输入网址"/><button class="search-clear" type="button" aria-label="清空搜索" hidden>×</button><button class="search-submit" type="submit" aria-label="开始搜索">↗</button></div><div class="bookmark-search-popup" hidden><div class="bookmark-search-caption">BOOKMARKS / 本地书签<span>↑ ↓ 选择 · ENTER 打开</span></div><div id="bookmark-suggestions" role="listbox" aria-label="匹配的书签"></div><p class="bookmark-search-empty" hidden>没有匹配的书签 · 按 Enter 搜索网络</p></div><div class="search-announcement" aria-live="polite"></div></form>`);
@@ -44,7 +47,7 @@ export function mountBookmarkUI() {
       const path = document.createElement('small'); path.textContent = `${record.bookmarkFolder ?? ''} / ${record.bookmarkUrl}`;
       row.append(title, path); row.title = `${record.title}\n${record.bookmarkUrl}`;
       row.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
-      row.addEventListener('click', () => { if (record.bookmarkUrl) location.assign(record.bookmarkUrl); });
+      row.addEventListener('click', () => { if (record.bookmarkUrl) openBookmarkDestination(record.bookmarkUrl); });
       list.append(row);
     });
     form.querySelector<HTMLElement>('.bookmark-search-empty')!.hidden = matches.length > 0;
@@ -64,7 +67,7 @@ export function mountBookmarkUI() {
     if (event.target === input && event.key === 'Enter' && active >= 0) {
       event.preventDefault();
       const target = matches[active]?.bookmarkUrl;
-      if (target) location.assign(target);
+      if (target) openBookmarkDestination(target);
     }
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -84,7 +87,7 @@ export function mountBookmarkUI() {
     event.preventDefault();
     if (composing) return;
     const target = active >= 0 ? matches[active]?.bookmarkUrl : searchTarget(input.value, engine);
-    if (target) location.assign(target);
+    if (target) openBookmarkDestination(target);
   });
   const status = document.createElement('div');
   status.className = 'bookmark-status'; status.setAttribute('role', 'status');

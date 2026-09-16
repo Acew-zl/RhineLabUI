@@ -1,6 +1,6 @@
 # RHINE LAB · ANALYSIS OS
 
-本 Fork 正在改造为浏览器起始页。现已实现本地打包的 Manifest V3 扩展、开场三维预热、书签栏分列、书签 Logo / 名称封面及网页搜索；安装与验收见 **[浏览器扩展说明](docs/EXTENSION.md)**。构建命令：`npm run build:extension`，输出：`release/extension`。
+本 Fork 正在改造为浏览器起始页。现已实现本地打包的 Manifest V3 扩展、开场三维预热、书签栏分列、书脊 Logo / 备注及网页搜索；默认新标签页打开链接，保留导航页，可在设置切换。安装与验收见 **[浏览器扩展说明](docs/EXTENSION.md)**。构建命令：`npm run build:extension`，输出：`release/extension`。
 
 **把莱茵生命的终端，做成可以操作的三维界面。**
 

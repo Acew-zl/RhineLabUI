@@ -21,7 +21,8 @@ import { CardAppearance } from "./appearance";
 import { configureInternalOptics } from "./internal-optics";
 import { DecryptionController } from "./decryption";
 import { fileLocation, bookmarkCatalog, records, archiveColumns } from "./data";
-import { BookmarkCovers, coverGeometry, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon } from "./bookmark-covers";
+import { BookmarkCovers, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon } from "./bookmark-covers";
+import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from "./bookmark-spine";
 import {
   cellKey,
   sameCell,
@@ -221,7 +222,8 @@ export class ArchiveScene {
     this.bookmarkCovers?.refresh();
     this.drawLabel(this.selectedIndex);
     for (const old of this.outgoing) {
-      const label = old.group.children.at(-1) as THREE.Mesh;
+      const label = old.group.getObjectByName('bookmark-spine') as THREE.Mesh | undefined;
+      if (!label) continue;
       const material = label.material as THREE.MeshBasicMaterial;
       const canvas = material.map?.image as HTMLCanvasElement | undefined;
       if (canvas) { paintBookmarkCover(canvas.getContext('2d')!, records[fileAtCell(old.cell)], canvas.width, canvas.height); material.map!.needsUpdate = true; }
@@ -251,6 +253,9 @@ export class ArchiveScene {
   private loaded = false;
   private labelCanvas = document.createElement("canvas");
   private labelTexture?: THREE.CanvasTexture;
+  private spineCanvas = document.createElement('canvas');
+  private spineTexture?: THREE.CanvasTexture;
+  private spineLabel?: THREE.Mesh;
   private labelMark = new Image();
   private reduced = false;
   private quality = normalizeQuality(undefined);
@@ -493,7 +498,7 @@ export class ArchiveScene {
     this.labelTexture.anisotropy =
       this.renderer.capabilities.getMaxAnisotropy();
     const label = new THREE.Mesh(
-      bookmarkCatalog ? coverGeometry() : new THREE.PlaneGeometry(0.99, 0.46),
+      new THREE.PlaneGeometry(0.99, 0.46),
       new THREE.MeshBasicMaterial({
         map: this.labelTexture,
         toneMapped: false,
@@ -501,8 +506,20 @@ export class ArchiveScene {
         depthWrite: false,
       }),
     );
-    if (!bookmarkCatalog) label.position.set(-1.36, 3.04, 0.255);
+    label.position.set(-1.36, 3.04, 0.255);
+    label.userData.printedLabel = true;
     this.model.add(label);
+    if (bookmarkCatalog) {
+      this.spineCanvas.width = SPINE_TEXTURE_WIDTH;
+      this.spineCanvas.height = SPINE_TEXTURE_HEIGHT;
+      this.spineTexture = new THREE.CanvasTexture(this.spineCanvas);
+      this.spineTexture.colorSpace = THREE.SRGBColorSpace;
+      this.spineTexture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      this.spineLabel = new THREE.Mesh(bookmarkSpineGeometry(), new THREE.MeshBasicMaterial({ map: this.spineTexture, toneMapped: false, transparent: true, depthWrite: false }));
+      this.spineLabel.name = 'bookmark-spine';
+      this.spineLabel.userData.printedLabel = true;
+      this.model.add(this.spineLabel);
+    }
     this.appearance.prepare(this.model);
     this.appearance.apply(this.model, 0);
     this.drawLabel(0);
@@ -540,6 +557,7 @@ export class ArchiveScene {
       const compiled = performance.now();
       await yieldPreparation();
       if (this.labelTexture) this.renderer.initTexture(this.labelTexture);
+      if (this.spineTexture) this.renderer.initTexture(this.spineTexture);
       this.renderer.shadowMap.needsUpdate = true;
       this.renderer.render(this.scene, this.camera);
       await yieldPreparation();
@@ -598,29 +616,34 @@ export class ArchiveScene {
     this.appearance.apply(model, 1);
     this.appearance.setClarity(model, this.decryption.clarity);
     this.appearance.setTheme(model, this.themeAmount);
-    const canvas = document.createElement("canvas");
-    canvas.width = this.labelCanvas.width;
-    canvas.height = this.labelCanvas.height;
-    canvas.getContext("2d")!.drawImage(this.labelCanvas, 0, 0);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-    const label = new THREE.Mesh(
-      bookmarkCatalog ? coverGeometry() : new THREE.PlaneGeometry(0.99, 0.46),
-      new THREE.MeshBasicMaterial({
-        map: texture,
-        toneMapped: false,
-        transparent: true,
-        depthWrite: false,
-      }),
-    );
-    if (!bookmarkCatalog) label.position.set(-1.36, 3.04, 0.255);
-    if (bookmarkCatalog) label.visible = coverPreferences.logo || coverPreferences.title;
-    label.userData.assemblyPart = "cover";
-    label.userData.themeAmount = themeMaterial(label.material, "Printed_Canvas");
-    label.userData.themeAmount.value = this.themeAmount;
-    model.add(label);
-    meshes.push(label);
+    const textures: THREE.Texture[] = [];
+    for (const source of bookmarkCatalog ? [this.labelCanvas, this.spineCanvas] : [this.labelCanvas]) {
+      const spine = source === this.spineCanvas;
+      const canvas = document.createElement("canvas");
+      canvas.width = source.width;
+      canvas.height = source.height;
+      canvas.getContext("2d")!.drawImage(source, 0, 0);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+      const label = new THREE.Mesh(
+        spine ? bookmarkSpineGeometry() : new THREE.PlaneGeometry(0.99, 0.46),
+        new THREE.MeshBasicMaterial({
+          map: texture,
+          toneMapped: false,
+          transparent: true,
+          depthWrite: false,
+        }),
+      );
+      if (!spine) label.position.set(-1.36, 3.04, 0.255);
+      if (spine) { label.visible = coverPreferences.logo || coverPreferences.title; label.name = 'bookmark-spine'; }
+      label.userData.assemblyPart = spine ? 'carrier' : 'cover';
+      label.userData.themeAmount = themeMaterial(label.material, "Printed_Canvas");
+      label.userData.themeAmount.value = this.themeAmount;
+      model.add(label);
+      meshes.push(label);
+      textures.push(texture);
+    }
     return {
       model,
       setClarity: (value: number) => this.appearance.setClarity(model, value),
@@ -629,7 +652,7 @@ export class ArchiveScene {
           mesh.geometry.dispose();
           (mesh.material as THREE.Material).dispose();
         }
-        texture.dispose();
+        textures.forEach(texture => texture.dispose());
       },
     };
   }
@@ -762,19 +785,23 @@ export class ArchiveScene {
     const changed = !sameCell(cell, this.selectedCell);
     if (this.looping && changed && this.loaded && this.lift.value > 0.0001) {
       const group = this.model.clone(true);
-      const label = group.children[group.children.length - 1] as THREE.Mesh;
-      const canvas = document.createElement("canvas");
-      canvas.width = 1024;
-      canvas.height = 440;
-      canvas.getContext("2d")!.drawImage(this.labelCanvas, 0, 0);
-      const map = new THREE.CanvasTexture(canvas);
-      map.colorSpace = THREE.SRGBColorSpace;
-      label.material = new THREE.MeshBasicMaterial({
-        map,
-        toneMapped: false,
-        transparent: true,
-        depthWrite: false,
-      });
+      for (const child of group.children.filter(child => child.userData.printedLabel)) {
+        const label = child as THREE.Mesh;
+        const source = (label.material as THREE.MeshBasicMaterial).map!.image as HTMLCanvasElement;
+        const canvas = document.createElement("canvas");
+        canvas.width = source.width;
+        canvas.height = source.height;
+        canvas.getContext("2d")!.drawImage(source, 0, 0);
+        const map = new THREE.CanvasTexture(canvas);
+        map.colorSpace = THREE.SRGBColorSpace;
+        map.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        label.material = new THREE.MeshBasicMaterial({
+          map,
+          toneMapped: false,
+          transparent: true,
+          depthWrite: false,
+        });
+      }
       // Clone carries the selected label material by reference. Replace it
       // before installing appearance shaders, so theme hooks are not appended
       // to the original label a second time on every selection.
@@ -824,13 +851,11 @@ export class ArchiveScene {
   private drawLabel(index: number) {
     if (!this.labelTexture) return;
     const c = this.labelCanvas.getContext("2d")!;
-    if (bookmarkCatalog) {
+    if (bookmarkCatalog && this.spineTexture && this.spineLabel) {
       bookmarkIcon(records[index], coverPreferences.logo);
-      paintBookmarkCover(c, records[index], 1024, 440);
-      const label = this.model.children.at(-1);
-      if (label) label.visible = coverPreferences.logo || coverPreferences.title;
-      this.labelTexture.needsUpdate = true;
-      return;
+      paintBookmarkCover(this.spineCanvas.getContext('2d')!, records[index], this.spineCanvas.width, this.spineCanvas.height);
+      this.spineLabel.visible = coverPreferences.logo || coverPreferences.title;
+      this.spineTexture.needsUpdate = true;
     }
     c.fillStyle = "#e6e2d9";
     c.fillRect(0, 0, 1024, 440);

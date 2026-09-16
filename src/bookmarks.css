@@ -33,7 +33,10 @@
 .bookmark-status { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); border-block: 1px solid var(--theme-line, #969183); }
 .bookmark-status[hidden] { display: none; }
 .bookmark-status button { margin-left: 12px; text-decoration: underline; }
-#bookmark-search-engine { background: transparent; color: inherit; padding: 8px; }
+#bookmark-search-engine, #bookmark-open-mode { background: transparent; color: inherit; padding: 8px; max-width: 45%; }
+.bookmark-icon-status { display: flex; align-items: center; gap: 14px; padding: 14px 0; font-size: 12px; color: var(--theme-muted, #77756d); }
+.bookmark-icon-status span { flex: 1; }
+.bookmark-icon-status button { flex-shrink: 0; min-height: 36px; border-bottom: 1px solid currentColor; }
 [data-bookmarks="true"] #selected-title { min-width: 0; max-width: 85%; overflow: hidden; }
 [data-bookmarks="true"] :is(.detail-title-cn, .detail-content h2) { overflow-wrap: anywhere; }
 [data-layout="compact"] .bookmark-search { top: 96px; width: calc(48% - var(--edge)); }

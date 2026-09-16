@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { records, type ArchiveRecord } from './data';
-import { faviconUrl } from './bookmarks';
+import { faviconSources } from './bookmarks';
+import { loadBookmarkIcon } from './bookmark-icon-loader';
 import { themeMaterial } from './theme-material';
 import { yieldPreparation } from './presentation-preparation';
+import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from './bookmark-spine';
 
 export const coverPreferences = { logo: true, title: true };
 try {
@@ -13,20 +15,37 @@ export function saveCoverPreference(key: 'logo' | 'title', value: boolean) {
   coverPreferences[key] = value;
   try { localStorage.setItem('rhine-bookmark-covers', JSON.stringify(coverPreferences)); } catch { /* Session only. */ }
 }
-export const coverGeometry = () => new THREE.PlaneGeometry(3.8, 1.6).translate(0, 2.5, .265);
-const icons = new Map<string, HTMLImageElement | null>();
+const icons = new Map<string, ImageBitmap | null>();
 const pending = new Set<string>();
-const queue: { url: string; source: string }[] = [];
+const queue: { url: string; sources: string[] }[] = [];
 const listeners = new Set<() => void>();
 let active = 0;
 export const onBookmarkIcon = (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); };
+let lastIconError = '';
+export function bookmarkIconStatus() {
+  if (!faviconSources('https://example.invalid/').length) return '网页预览无法读取浏览器图标；请在已安装扩展的新标签页检查';
+  const values = [...icons.values()];
+  return `${values.filter(Boolean).length} 个已读取 · ${values.filter(value => !value).length} 个暂不可用${lastIconError ? ` · ${lastIconError}` : ''}`;
+}
+export function retryBookmarkIcons() {
+  for (const [url, icon] of icons) if (!icon) icons.delete(url);
+  lastIconError = '';
+  listeners.forEach(listener => listener());
+}
 function pumpIcons() {
   while (active < 6 && queue.length) {
-    const { url, source } = queue.shift()!;
+    const { url, sources } = queue.shift()!;
     active++;
-    const image = new Image();
-    image.src = source;
-    void image.decode().then(() => { icons.set(url, image); }).catch(() => { icons.set(url, null); }).finally(() => {
+    void loadBookmarkIcon(sources, async source => {
+      const response = await fetch(source, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error(`图标接口 HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.size) throw new Error('浏览器未返回图标');
+      return blob;
+    }, blob => createImageBitmap(blob)).then(image => { icons.set(url, image); }).catch(error => {
+      icons.set(url, null);
+      lastIconError = error instanceof Error && error.message.startsWith('图标接口 HTTP') ? error.message : '图标读取失败，可重试';
+    }).finally(() => {
       active--; pending.delete(url); listeners.forEach(listener => listener()); pumpIcons();
     });
   }
@@ -34,53 +53,48 @@ function pumpIcons() {
 export function bookmarkIcon(record: ArchiveRecord, request = true) {
   const url = record.bookmarkUrl;
   if (request && url && !icons.has(url) && !pending.has(url)) {
-    const source = faviconUrl(url);
-    if (source) { pending.add(url); queue.push({ url, source }); pumpIcons(); }
+    const sources = faviconSources(url);
+    if (sources.length) { pending.add(url); queue.push({ url, sources }); pumpIcons(); }
   }
   return url ? icons.get(url) : null;
-}
-
-function lines(context: CanvasRenderingContext2D, text: string, width: number) {
-  const result: string[] = [''];
-  for (const char of Array.from(text)) {
-    const last = result.length - 1;
-    if (context.measureText(result[last] + char).width <= width) result[last] += char;
-    else if (last === 0) result.push(char);
-    else {
-      while (context.measureText(result[1] + '…').width > width) result[1] = Array.from(result[1]).slice(0, -1).join('');
-      result[1] += '…'; break;
-    }
-  }
-  return result;
 }
 
 export function paintBookmarkCover(context: CanvasRenderingContext2D, record: ArchiveRecord, width: number, height: number) {
   context.clearRect(0, 0, width, height);
   if (!coverPreferences.logo && !coverPreferences.title) return;
   context.fillStyle = '#e6e2d9'; context.fillRect(0, 0, width, height);
-  context.fillStyle = '#171713'; context.fillRect(width * .035, height * .08, width * .93, Math.max(1, height * .012));
+  context.fillStyle = '#171713';
   const icon = bookmarkIcon(record, false);
-  const size = height * .47;
-  const x = coverPreferences.title ? width * .06 : (width - size) / 2;
+  const size = height * .78;
+  const x = height * .12;
   if (coverPreferences.logo && !record.empty) {
-    if (icon) context.drawImage(icon, x, (height - size) / 2, size, size);
+    if (icon) {
+      const scale = Math.min(size / icon.width, size / icon.height);
+      context.drawImage(icon, x + (size - icon.width * scale) / 2, (height - icon.height * scale) / 2, icon.width * scale, icon.height * scale);
+    }
     else {
       context.strokeStyle = '#77766c'; context.lineWidth = Math.max(1, height * .01);
       context.strokeRect(x, (height - size) / 2, size, size);
-      context.font = `600 ${height * .26}px MiSans`; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.font = `600 ${height * .55}px MiSans`; context.textAlign = 'center'; context.textBaseline = 'middle';
       context.fillText(Array.from(record.title)[0]?.toUpperCase() ?? '◇', x + size / 2, height / 2);
     }
   }
   if (coverPreferences.title) {
-    const start = coverPreferences.logo && !record.empty ? x + size + width * .045 : width * .06;
-    context.font = `600 ${height * .19}px MiSans`; context.textAlign = 'left'; context.textBaseline = 'middle';
-    const text = lines(context, record.title, width * .94 - start);
-    text.forEach((line, i) => context.fillText(line, start, height * .5 + (i - (text.length - 1) / 2) * height * .25));
+    const start = coverPreferences.logo && !record.empty ? x + size + height * .25 : x;
+    context.font = `600 ${height * .61}px MiSans`; context.textAlign = 'left'; context.textBaseline = 'middle';
+    const available = width - start - x;
+    let text = record.title;
+    if (context.measureText(text).width > available) {
+      const chars = Array.from(text);
+      while (chars.length && context.measureText(chars.join('') + '…').width > available) chars.pop();
+      text = chars.join('') + '…';
+    }
+    context.fillText(text, start, height * .51);
   }
   context.textAlign = 'left'; context.textBaseline = 'alphabetic';
 }
 
-/** One atlas and one instanced draw for the background covers; shares the card transforms. */
+/** One atlas and one instanced draw for spine decals; shares the card transforms. */
 export class BookmarkCovers {
   readonly mesh: THREE.InstancedMesh;
   private canvas = document.createElement('canvas');
@@ -90,23 +104,23 @@ export class BookmarkCovers {
   private width: number;
   private height: number;
   private indexes = new THREE.InstancedBufferAttribute(new Float32Array(288), 1);
-  private paintedIcons = new Map<number, HTMLImageElement | null | undefined>();
+  private paintedIcons = new Map<number, ImageBitmap | null | undefined>();
   private unsubscribe: () => void;
   private dirty = false;
   constructor(maxSize: number, private invalidate: () => void) {
     const limit = Math.min(4096, maxSize);
-    let tile = 256;
+    let tile = 768;
     while (Math.ceil(Math.sqrt(records.length)) * tile > limit && tile > 16) tile /= 2;
     this.columns = Math.min(Math.floor(limit / tile), Math.ceil(Math.sqrt(records.length)));
     this.rows = Math.ceil(records.length / this.columns);
-    this.width = tile; this.height = Math.max(8, Math.floor(tile * 440 / 1024));
+    this.width = tile; this.height = Math.max(8, Math.floor(tile * SPINE_TEXTURE_HEIGHT / SPINE_TEXTURE_WIDTH));
     this.canvas.width = this.columns * this.width;
     this.canvas.height = this.rows * this.height;
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.generateMipmaps = false;
     this.texture.minFilter = THREE.LinearFilter;
-    const geometry = coverGeometry();
+    const geometry = bookmarkSpineGeometry();
     geometry.setAttribute('bookmarkIndex', this.indexes);
     const material = new THREE.MeshBasicMaterial({ map: this.texture, toneMapped: false });
     material.onBeforeCompile = shader => {

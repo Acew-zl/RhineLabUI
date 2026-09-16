@@ -17,6 +17,7 @@ import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension } from './platform';
 import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch } from './bookmark-ui';
 import { saveCoverPreference } from './bookmark-covers';
+import { openBookmarkDestination, setBookmarkOpenMode } from './bookmark-navigation';
 import './bookmarks.css';
 import { createRollingNumber, createRollingText } from "@kitlangton/rolling-number";
 import { ArchiveScene } from "./scene";
@@ -507,7 +508,7 @@ function replayBootAfterModal(forcePreview: boolean) {
 function openFile() {
   if (isExtension) {
     const record = records[selected];
-    if (record.bookmarkUrl) location.assign(record.bookmarkUrl);
+    if (record.bookmarkUrl) openBookmarkDestination(record.bookmarkUrl);
     else notify(record.empty ? '此文件夹暂无书签。' : '此书签地址不能在起始页中打开。');
     return;
   }
@@ -553,7 +554,7 @@ function renderDetail() {
   <div class="detail-tabs" role="tablist"><button id="tab-overview" class="active" role="tab" aria-controls="tab-panel" aria-selected="true" data-tab="overview">01 <span>概述</span></button><button id="tab-notes" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="notes">02 <span>研究记录</span></button><button id="tab-history" role="tab" aria-controls="tab-panel" aria-selected="false" data-tab="history">03 <span>访问日志</span></button><i class="tab-indicator" aria-hidden="true"></i></div>
   <div id="tab-panel" class="tab-panel" role="tabpanel">${overview()}</div>
   <div class="detail-actions"><button class="solid-button" data-action="bookmark">${saved.has(savedKey(r)) ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE"}<span>${saved.has(savedKey(r)) ? "已收藏" : "收藏档案"}</span></button>${isExtension ? `<button class="export-button" data-action="open">OPEN WEBSITE <span>↗</span></button>` : `<a class="export-button" href="${assetUrl(`archives/RHINE-LAB-${r.id}.txt`)}" download="RHINE-LAB-${r.id}.txt" aria-label="导出 ${r.id} 档案">EXPORT <span>↓</span></a>`}</div>
-  <div class="detail-footnote"><a href="${escapeHtml(r.source)}" target="_blank" rel="noopener">${isExtension ? "打开书签 ↗" : "设定参考 ↗"}</a><span>${String(selected + 1).padStart(3, "0")} / ${String(records.length).padStart(3, "0")}</span></div>`;
+  <div class="detail-footnote">${isExtension ? '<button data-action="open">打开书签 ↗</button>' : `<a href="${escapeHtml(r.source)}" target="_blank" rel="noopener">设定参考 ↗</a>`}<span>${String(selected + 1).padStart(3, "0")} / ${String(records.length).padStart(3, "0")}</span></div>`;
   $("#detail-content").setAttribute("tabindex", "-1");
   $('[data-action="bookmark"]').setAttribute("aria-pressed", String(saved.has(savedKey(r))));
   documentDecryption.reset($("#detail-content"), prefs.reduced || !scene || scene.decryptionFrame.phase === "clear");
@@ -731,6 +732,7 @@ document.addEventListener("change", (e) => {
     scene?.refreshBookmarkCovers();
   }
   if (el.id === 'bookmark-search-engine') setSearchEngine(el.value);
+  if (el.id === 'bookmark-open-mode') setBookmarkOpenMode(el.value);
   if (el.id === "quality-preset" && Object.hasOwn(qualityPresets, el.value)) {
     prefs.rendering = { ...qualityPresets[el.value as QualityPreset] };
     savePrefs();
