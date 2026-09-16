@@ -1,3 +1,5 @@
+import { BookmarkReadableLayer } from './bookmark-readable-layer';
+import { bookmarkColumnColor, bookmarkTintMaterial } from './bookmark-colors';
 import * as THREE from "three";
 import { yieldPreparation } from "./presentation-preparation";
 import { ArchiveVisibility } from "./archive-visibility";
@@ -75,6 +77,7 @@ export class ArchiveScene {
   revealImmediately() { this.reveal = this.targetReveal; }
   dispose() {
     this.unsubscribeCover?.();
+    this.readableBookmarks?.dispose();
     this.bookmarkCovers?.dispose();
     this.inputEvents.abort();
     this.cancelPointer();
@@ -217,6 +220,14 @@ export class ArchiveScene {
   private selectedSlot = 76;
   private selectedIndex = 0;
   private bookmarkCovers?: BookmarkCovers;
+  private readableBookmarks?: BookmarkReadableLayer;
+  private tintAttribute?: THREE.InstancedBufferAttribute;
+  private tintUpdates?: InstanceUpdates;
+  private tintGroup(group: THREE.Group, index: number) {
+    if (!bookmarkCatalog) return;
+    const color = bookmarkColumnColor(records[index].category);
+    group.traverse(object => { if (object.userData.bookmarkTint) object.userData.bookmarkTint.value.copy(color); });
+  }
   private unsubscribeCover?: () => void;
   refreshBookmarkCovers() {
     this.bookmarkCovers?.refresh();
@@ -482,6 +493,11 @@ export class ArchiveScene {
       this.themeAttribute ??= new THREE.InstancedBufferAttribute(new Float32Array(count), 1).setUsage(THREE.DynamicDrawUsage);
       geom.setAttribute("archiveTheme", this.themeAttribute);
       themeMaterial(arrayMat, name, true, this.subduedIndex);
+      if (bookmarkCatalog) {
+        this.tintAttribute ??= new THREE.InstancedBufferAttribute(new Float32Array(count * 3).fill(1), 3).setUsage(THREE.DynamicDrawUsage);
+        geom.setAttribute("archiveTint", this.tintAttribute);
+        bookmarkTintMaterial(arrayMat, true);
+      }
       const inst = new THREE.InstancedMesh(geom, arrayMat, count);
       // All surfaces move rigidly together; share the transform buffer on the GPU.
       inst.instanceMatrix = this.instances[0]?.instanceMatrix ?? inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -517,6 +533,7 @@ export class ArchiveScene {
       this.spineTexture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
       this.spineLabel = new THREE.Mesh(bookmarkSpineGeometry(), new THREE.MeshBasicMaterial({ map: this.spineTexture, toneMapped: false, transparent: true, depthWrite: false }));
       this.spineLabel.name = 'bookmark-spine';
+      this.spineLabel.layers.set(1);
       this.spineLabel.userData.printedLabel = true;
       this.model.add(this.spineLabel);
     }
@@ -529,7 +546,7 @@ export class ArchiveScene {
     if (bookmarkCatalog) {
       this.bookmarkCovers = new BookmarkCovers(this.renderer.capabilities.maxTextureSize, () => this.renderState.invalidate());
       await this.bookmarkCovers.prepare();
-      this.scene.add(this.bookmarkCovers.mesh);
+      this.readableBookmarks = new BookmarkReadableLayer(this.container, this.bookmarkCovers.mesh);
       this.unsubscribeCover = onBookmarkIcon(() => { this.drawLabel(this.selectedIndex); this.renderState.invalidate(); });
     }
   }
@@ -572,6 +589,8 @@ export class ArchiveScene {
         this.smaa.enabled = smaa;
         this.composer.render();
       }
+      await yieldPreparation();
+      await this.readableBookmarks?.prepare(this.scene, this.camera);
       return { compileMs: compiled - started, totalMs: performance.now() - started };
     } finally {
       this.bokeh.enabled = bokeh;
@@ -616,6 +635,7 @@ export class ArchiveScene {
     this.appearance.apply(model, 1);
     this.appearance.setClarity(model, this.decryption.clarity);
     this.appearance.setTheme(model, this.themeAmount);
+    this.tintGroup(model, this.selectedIndex);
     const textures: THREE.Texture[] = [];
     for (const source of bookmarkCatalog ? [this.labelCanvas, this.spineCanvas] : [this.labelCanvas]) {
       const spine = source === this.spineCanvas;
@@ -895,6 +915,13 @@ export class ArchiveScene {
     for (const inst of this.instances) inst.geometry.setAttribute("archiveTheme", this.themeAttribute);
     this.matrixUpdates = new InstanceUpdates(matrix);
     this.themeUpdates = new InstanceUpdates(this.themeAttribute);
+    if (this.tintAttribute) {
+      const previousTint = this.tintAttribute;
+      this.tintAttribute = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3).fill(1), 3).setUsage(THREE.DynamicDrawUsage);
+      this.tintAttribute.array.set(previousTint.array);
+      this.tintUpdates = new InstanceUpdates(this.tintAttribute);
+      for (const inst of this.instances) inst.geometry.setAttribute('archiveTint', this.tintAttribute);
+    }
     this.instanceCapacity = capacity;
   }
   resize() {
@@ -910,6 +937,7 @@ export class ArchiveScene {
         Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * displayHeight / this.displayHeight,
       ));
     }
+    this.readableBookmarks?.resize();
     this.displayHeight = displayHeight;
     this.layoutKind = kind;
     const dimensions = resizeQuality(
@@ -1505,6 +1533,7 @@ export class ArchiveScene {
       const quality = ease(o.lift.value / 0.4);
       this.appearance.apply(o.group, quality);
       this.appearance.setTheme(o.group, this.theme.sample(o.cell, time), indexDim(o.lift.value));
+      this.tintGroup(o.group, fileAtCell(o.cell));
       o.clarity = this.reduced ? 0 : o.clarity * Math.exp(-dt * 9);
       this.appearance.setClarity(o.group, o.clarity);
       const { row, lane } = o.cell;
@@ -1540,6 +1569,7 @@ export class ArchiveScene {
       }
     }
     this.appearance.setTheme(this.model, this.theme.sample(this.selectedCell, time), indexDim(this.lift.value));
+    this.tintGroup(this.model, this.selectedIndex);
     this.model.position.set(
       chosen.x - trackX,
       chosen.y + field(selectedRow, selectedLane) + this.lift.value + hoverLift(this.selectedCell) - this.presentationDrop(this.selectedCell),
@@ -1668,6 +1698,7 @@ export class ArchiveScene {
     }
     const framing = archiveFraming(this.container.clientWidth, this.container.clientHeight, span, detail,
       this.container.closest<HTMLElement>("[data-layout]")?.dataset.layout === "compact");
+    if (bookmarkCatalog && !cinematic && !framing.portrait) framing.span /= 1 + .25 * (1 - detail);
     if (!cinematic) {
       const right = new THREE.Vector3()
         .crossVectors(new THREE.Vector3(0, 1, 0), viewDirection)
@@ -1682,6 +1713,13 @@ export class ArchiveScene {
         // Following model.position here would visually cancel those motions.
         const previewAim = new THREE.Vector3(0, -4.6 + settlingWave(0, 26.56) + 0.4 + 1.85, -2.17);
         previewAim.addScaledVector(up, (framing.previewY - 0.5) * height / pixelScale);
+        cameraAim.copy(previewAim);
+      }
+      if (bookmarkCatalog && !framing.portrait) {
+        // Camera-only framing: retain physical extraction, row spacing and wave.
+        const previewAim = new THREE.Vector3(0, -4.6 + settlingWave(0, 26.56) + .4 + 1.85, -2.17);
+        previewAim.addScaledVector(right, (0.5 - .36) * width / pixelScale);
+        previewAim.addScaledVector(up, (.68 - .5) * height / pixelScale);
         cameraAim.copy(previewAim);
       }
       const detailAim = this.model.position
@@ -1731,6 +1769,7 @@ export class ArchiveScene {
     this.relayPoints.clear();
     this.matrixUpdates ??= new InstanceUpdates(this.instances[0].instanceMatrix);
     if (this.themeAttribute) this.themeUpdates ??= new InstanceUpdates(this.themeAttribute);
+    if (this.tintAttribute) this.tintUpdates ??= new InstanceUpdates(this.tintAttribute);
     for (const cell of this.cells) {
       const { row, lane } = cell;
       if (hidden.has(cellKey(cell))) continue;
@@ -1742,6 +1781,7 @@ export class ArchiveScene {
       this.ensureInstanceCapacity(i + 1);
       this.drawnCells.push(cell);
       this.themeUpdates?.scalar(i, this.theme.sample(cell, time));
+      if (this.tintUpdates) { const tint = bookmarkColumnColor(records[fileAtCell(cell)].category); this.tintUpdates.set(i * 3, [tint.r, tint.g, tint.b]); }
       const slope = field(row + .5, lane) - field(row - .5, lane);
       this.dummy.position.set(x, y, z);
       this.dummy.rotation.set(slope * .024 * (1 - detail), 0, 0);
@@ -1759,6 +1799,7 @@ export class ArchiveScene {
     // renderer culling and do not need an O(n) bound recomputation each frame.
     if (matricesChanged || countChanged || !this.instances[0].boundingSphere) this.instances[0].computeBoundingSphere();
     this.themeUpdates?.commit();
+    this.tintUpdates?.commit();
     this.bookmarkCovers?.sync(this.instances[0], this.themeAttribute!, this.drawnCells.map(fileAtCell));
     let neighborTop = -Infinity;
     const lane = selectedLane,
@@ -1841,6 +1882,7 @@ export class ArchiveScene {
     this.renderer.shadowMap.needsUpdate = true;
     if (this.superPerformance) this.renderer.render(this.scene, this.camera);
     else this.composer.render();
+    this.readableBookmarks?.render(this.scene, this.camera, THREE.MathUtils.clamp(this.presence / .16, 0, 1));
   }
   projectCard(x: number, y: number) {
     this.model.updateMatrixWorld(true);

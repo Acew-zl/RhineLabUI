@@ -45,7 +45,7 @@ export function bookmarkColumns(tree: BookmarkNode[]) {
       try { host = new URL(node.url!).hostname; } catch { /* Empty placeholder. */ }
       result.push({
         id: `X-${String(result.length + 1).padStart(3, '0')}`,
-        title: node.title || host || '未命名书签', en: host || 'BOOKMARK ARCHIVE',
+        title: node.title, en: host || 'BOOKMARK ARCHIVE',
         category: group.name, department: path, date: '', lead: '本地书签',
         clearance: empty ? 'EMPTY FOLDER' : target ? 'BOOKMARK' : 'UNSUPPORTED URL',
         abstract: empty ? '在浏览器书签栏的对应位置添加书签后，刷新此页即可显示。' : node.url!,

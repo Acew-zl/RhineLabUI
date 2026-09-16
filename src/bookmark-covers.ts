@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { records, type ArchiveRecord } from './data';
 import { faviconSources } from './bookmarks';
 import { loadBookmarkIcon } from './bookmark-icon-loader';
-import { themeMaterial } from './theme-material';
+import { bookmarkColumnColor } from './bookmark-colors';
 import { yieldPreparation } from './presentation-preparation';
 import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from './bookmark-spine';
 
@@ -62,7 +62,7 @@ export function bookmarkIcon(record: ArchiveRecord, request = true) {
 export function paintBookmarkCover(context: CanvasRenderingContext2D, record: ArchiveRecord, width: number, height: number) {
   context.clearRect(0, 0, width, height);
   if (!coverPreferences.logo && !coverPreferences.title) return;
-  context.fillStyle = '#e6e2d9'; context.fillRect(0, 0, width, height);
+  context.fillStyle = '#' + bookmarkColumnColor(record.category).lerp(new THREE.Color('#f3f0e9'), .72).getHexString(); context.fillRect(0, 0, width, height);
   context.fillStyle = '#171713';
   const icon = bookmarkIcon(record, false);
   const size = height * .78;
@@ -108,10 +108,10 @@ export class BookmarkCovers {
   private unsubscribe: () => void;
   private dirty = false;
   constructor(maxSize: number, private invalidate: () => void) {
-    const limit = Math.min(4096, maxSize);
-    let tile = 768;
-    while (Math.ceil(Math.sqrt(records.length)) * tile > limit && tile > 16) tile /= 2;
-    this.columns = Math.min(Math.floor(limit / tile), Math.ceil(Math.sqrt(records.length)));
+    const limit = Math.min(8192, maxSize);
+    let tile = 1024;
+    while (Math.ceil(records.length / Math.floor(limit / tile)) * (tile / 16) > limit && tile > 32) tile /= 2;
+    this.columns = Math.min(Math.floor(limit / tile), records.length);
     this.rows = Math.ceil(records.length / this.columns);
     this.width = tile; this.height = Math.max(8, Math.floor(tile * SPINE_TEXTURE_HEIGHT / SPINE_TEXTURE_WIDTH));
     this.canvas.width = this.columns * this.width;
@@ -122,13 +122,16 @@ export class BookmarkCovers {
     this.texture.minFilter = THREE.LinearFilter;
     const geometry = bookmarkSpineGeometry();
     geometry.setAttribute('bookmarkIndex', this.indexes);
-    const material = new THREE.MeshBasicMaterial({ map: this.texture, toneMapped: false });
+    const material = new THREE.MeshBasicMaterial({ map: this.texture, toneMapped: false, transparent: true, depthWrite: false });
     material.onBeforeCompile = shader => {
-      shader.vertexShader = 'attribute float bookmarkIndex;\n' + shader.vertexShader;
+      shader.vertexShader = 'attribute float bookmarkIndex; varying float spineScreenY;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nspineScreenY = .5 * (gl_Position.y / gl_Position.w + 1.0);');
+      shader.fragmentShader = 'varying float spineScreenY;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(.70, .89, spineScreenY);\n#include <opaque_fragment>');
       shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv = vec2((mod(bookmarkIndex, ${this.columns}.0) + mix(.004, .996, uv.x)) / ${this.columns}.0, (${this.rows - 1}.0 - floor(bookmarkIndex / ${this.columns}.0) + mix(.004, .996, uv.y)) / ${this.rows}.0);`);
     };
     material.customProgramCacheKey = () => `bookmark-atlas-${this.columns}-${this.rows}`;
-    themeMaterial(material, 'Printed_Canvas', true);
+    this.texture.anisotropy = 16;
     this.mesh = new THREE.InstancedMesh(geometry, material, 288);
     this.mesh.frustumCulled = false;
     this.mesh.visible = false;

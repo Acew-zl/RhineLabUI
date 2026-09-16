@@ -1,3 +1,4 @@
+import { bookmarkColumnColor } from './bookmark-colors';
 import { createRollingClock } from "./rolling-clock";
 import { InspectionOverlay } from "./inspection-overlay";
 import { DocumentDecryption } from "./document-decryption";
@@ -445,6 +446,7 @@ function updateSelection(navigation?: ArchiveNavigation) {
   }
   selectionTitle.update({ text: r.title, animated: !prefs.reduced && mode === "archive" });
   $("#selected-title").title = r.title;
+  if (isExtension) $("#stage").style.setProperty("--bookmark-column-color", "#" + bookmarkColumnColor(r.category).getHexString());
   clearanceTitle.update({ text: r.clearance, animated: !prefs.reduced && mode === "archive" });
   categoryTitle.update({ text: r.category, animated: !prefs.reduced && mode === "archive" });
   const direction =

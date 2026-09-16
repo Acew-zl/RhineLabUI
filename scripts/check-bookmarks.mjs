@@ -126,3 +126,10 @@ test('large catalogs are indexed once and expose every bookmark', () => {
   assert.equal(records[fileAtCell({lane:1,row:2011})].title,'书签1999');
   assert.equal(records[fileAtCell({lane:1,row:2012})].title,'书签0');
 });
+
+
+test('bookmark names stay verbatim, including empty names and URL-looking titles', () => {
+  const names = ['', '  自定义备注  ', 'https://my-saved-title.example/', '工作 <>&'];
+  const catalog = bookmarkColumns([{ id: '0', title: '', children: [{ id: '1', title: '', children: names.map((title, i) => ({ id: String(i + 2), title, url: 'https://different-host.example/' })) }] }]);
+  assert.deepEqual(catalog.records.map(record => record.title), names);
+});

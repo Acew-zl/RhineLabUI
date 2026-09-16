@@ -20,6 +20,11 @@ export function mountBookmarkUI() {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
   document.addEventListener('click', event => { if ((event.target as Element).closest('[data-retry-icons]')) retryBookmarkIcons(); });
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
+  const callout = document.querySelector('.archive-callout')!;
+  callout.prepend(document.querySelector('.column-navigation')!);
+  document.querySelector('#column-number')!.firstChild!.textContent = 'FOLDER / 文件夹 ';
+  document.querySelector('[data-action="column-prev"]')!.setAttribute('aria-label', '上一个文件夹');
+  document.querySelector('[data-action="column-next"]')!.setAttribute('aria-label', '下一个文件夹');
   document.querySelector('.system-nav [data-action="search"] .key')?.remove();
   document.querySelector('#archive-ui')!.insertAdjacentHTML('beforeend', `<form class="bookmark-search" role="search" aria-label="网络与书签搜索"><div class="bookmark-search-heading"><label for="web-search">SEARCH / 检索</label><select data-search-engine aria-label="搜索栏引擎">${Object.entries(engineNames).map(([key, label]) => `<option value="${key}" ${engine === key ? 'selected' : ''}>${label}</option>`).join('')}</select><span class="key" aria-hidden="true">/</span></div><div class="search-field"><span aria-hidden="true">⌕</span><input id="web-search" type="text" role="combobox" aria-autocomplete="list" aria-controls="bookmark-suggestions" aria-expanded="false" autocomplete="off" spellcheck="false" placeholder="搜索、输入网址或查找书签" aria-label="搜索网络或输入网址"/><button class="search-clear" type="button" aria-label="清空搜索" hidden>×</button><button class="search-submit" type="submit" aria-label="开始搜索">↗</button></div><div class="bookmark-search-popup" hidden><div class="bookmark-search-caption">BOOKMARKS / 本地书签<span>↑ ↓ 选择 · ENTER 打开</span></div><div id="bookmark-suggestions" role="listbox" aria-label="匹配的书签"></div><p class="bookmark-search-empty" hidden>没有匹配的书签 · 按 Enter 搜索网络</p></div><div class="search-announcement" aria-live="polite"></div></form>`);
   const form = document.querySelector<HTMLFormElement>('.bookmark-search')!;

@@ -1,3 +1,5 @@
+import { bookmarkCatalog } from './data';
+import { bookmarkTintMaterial } from './bookmark-colors';
 import * as THREE from "three";
 import { glassRevealGLSL, frostedTransmissionGLSL, FROSTED_ROUGHNESS } from "./glass-reveal.ts";
 import { internalOpticsFragment } from "./internal-optics.ts";
@@ -87,6 +89,7 @@ export class CardAppearance {
         `archive-surface-clarity-${name}-${Boolean(palette.low)}`;
       mesh.userData.subduedIndex = { value: 0 };
       mesh.userData.themeAmount = themeMaterial(mat, name, false, mesh.userData.subduedIndex);
+      if (bookmarkCatalog) mesh.userData.bookmarkTint = bookmarkTintMaterial(mat, false);
     }
   }
 
