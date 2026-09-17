@@ -111,3 +111,23 @@
 [data-bookmarks="true"]:not([data-layout="portrait"]) .archive-atmosphere::after { background: linear-gradient(90deg, transparent 57%, rgba(232,229,225,.25) 68%, rgba(232,229,225,.95) 76%, #e8e5e1 100%); }
 [data-dark-surface="true"] [data-bookmarks="true"]:not([data-layout="portrait"]) .archive-atmosphere::after { background: linear-gradient(90deg, transparent 57%, rgba(var(--theme-paper-rgb),.25) 68%, rgba(var(--theme-paper-rgb),.95) 76%, var(--theme-paper) 100%); }
 [data-bookmarks="true"][data-mode="detail"]:not([data-layout="portrait"]) .bookmark-readable-layer { mask-image: linear-gradient(90deg, #000 57%, transparent 75%); }
+
+/* The selected site's identity stays sharp in the flat UI, outside 3D effects. */
+[data-bookmarks="true"] .archive-callout .file-summary { justify-content: flex-start; gap: 12px; }
+[data-bookmarks="true"] #selected-title { flex: 1; }
+.bookmark-summary-logo { flex: 0 0 36px; width: 36px; height: 36px; }
+.bookmark-summary-logo[hidden] { display: none; }
+[data-bookmarks="true"]:is([data-layout="compact"], [data-layout="portrait"]) .bookmark-summary-logo { flex-basis: 28px; width: 28px; height: 28px; }
+.bookmark-settings-group { border-top: 1px solid var(--theme-line, #bdb8ad); }
+.bookmark-settings-group > summary { padding: 19px 0; cursor: pointer; font-size: 14px; letter-spacing: 1px; font-weight: 500; }
+.bookmark-settings-group > summary:focus-visible, .bookmark-icon-help > summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.bookmark-settings-content { padding: 0 0 18px 20px; }
+.bookmark-settings .settings-list { border-top: 0; }
+.bookmark-settings .settings-list > label { gap: 24px; padding: 18px 0; }
+.bookmark-settings .settings-list > label > div { flex: 1; min-width: 0; }
+.bookmark-settings .toggle { flex-shrink: 0; }
+.bookmark-settings .settings-list label span { line-height: 1.7; margin-top: 6px; }
+.bookmark-settings select { flex-shrink: 0; max-width: 48%; }
+.bookmark-icon-help { padding-top: 14px; font-size: 12px; color: var(--theme-muted, #77756d); }
+.bookmark-icon-help > summary { cursor: pointer; padding: 5px 0; }
+.bookmark-setting-note { font-size: 12px; line-height: 1.7; color: var(--theme-muted, #77756d); margin: 12px 0 0; }

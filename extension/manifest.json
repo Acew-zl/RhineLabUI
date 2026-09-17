@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rhine Lab · 莱茵生命起始页",
   "description": "以莱茵生命三维档案终端作为新标签页。模型、字体和声音随扩展本地提供。",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "permissions": ["bookmarks", "favicon"],
   "minimum_chrome_version": "120",
   "chrome_url_overrides": { "newtab": "index.html" },

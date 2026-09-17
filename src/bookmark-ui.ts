@@ -1,3 +1,4 @@
+import { getBookmarkSummaryLogo, mountBookmarkSummaryLogo } from './bookmark-summary';
 import { getBookmarkStartupMode } from './bookmark-startup';
 import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkStatus } from './bookmarks';
@@ -15,8 +16,16 @@ export function setSearchEngine(value: string) {
   document.querySelectorAll<HTMLSelectElement>('[data-search-engine]').forEach(select => { select.value = engine; });
 }
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
-export function bookmarkSettingsMarkup() {
-  return `<label><div><strong>STARTUP / 启动方式</strong><span>下次打开新标签页生效；简短动画在三维就绪后进入，直接进入仅保留加载提示。自动进入时声音在首次交互后启用。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[["full", "完整启动动画"], ["brief", "简短动画 · 就绪即进入"], ["direct", "直接进入三维档案"]].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? "selected" : ""}>${label}</option>`).join("")}</select></label><label><div><strong>OPEN LINKS</strong><span>书签与搜索结果的打开方式；新标签页可保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label><label><div><strong>BOOKMARK LOGO</strong><span>在档案顶部朝上的书脊显示站点 Logo</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>BOOKMARK TITLE</strong><span>在顶部书脊显示浏览器保存的书签名称 / 备注</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label><label><div><strong>SEARCH ENGINE</strong><span>搜索框使用的搜索引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div>`;
+export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'startup') {
+  if (section === 'navigation') return `
+    <label><div><strong>搜索引擎 / SEARCH ENGINE</strong><span>网络搜索默认使用的引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label>
+    <label><div><strong>链接打开方式 / OPEN LINKS</strong><span>应用于书签与搜索结果；新标签页会保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label>`;
+  if (section === 'display') return `
+    <label><div><strong>名称旁的网站 Logo</strong><span>在右侧选中书签的名称左边显示，独立于书脊设置</span></div><input type="checkbox" id="bookmark-summary-logo" ${getBookmarkSummaryLogo() ? 'checked' : ''}/><i class="toggle"></i></label>
+    <label><div><strong>书脊 Logo</strong><span>在档案顶部朝上的书脊显示网站图标</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label>
+    <label><div><strong>书脊名称 / 备注</strong><span>与浏览器保存的名称一致；空名称保留为空</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label>
+    <details class="bookmark-icon-help"><summary>图标加载状态与重试</summary><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div></details>`;
+  return `<label><div><strong>启动方式 / STARTUP</strong><span>下次打开生效。简短动画在三维就绪后跳转；直接进入仅显示加载提示。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[['full', '完整启动动画'], ['brief', '简短动画 · 就绪即进入'], ['direct', '直接进入三维档案']].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><p class="bookmark-setting-note">自动进入时，声音在首次交互后启用。</p>`;
 }
 export function mountBookmarkUI() {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
@@ -24,7 +33,7 @@ export function mountBookmarkUI() {
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
   const callout = document.querySelector('.archive-callout')!;
   callout.prepend(document.querySelector('.column-navigation')!);
-  document.querySelector('.archive-hint')!.textContent = '拖动浏览 · 双击选中档案查看详情 · Enter 打开书签';
+  mountBookmarkSummaryLogo();
   document.querySelector('#column-number')!.firstChild!.textContent = 'FOLDER / 文件夹 ';
   document.querySelector('[data-action="column-prev"]')!.setAttribute('aria-label', '上一个文件夹');
   document.querySelector('[data-action="column-next"]')!.setAttribute('aria-label', '下一个文件夹');

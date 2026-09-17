@@ -277,7 +277,7 @@ export class ArchiveScene {
   private layoutKind = "";
   onSelect?: (index: number, cell?: ArchiveCell) => void;
   onInspect?: () => void;
-  private get previewLift() { return bookmarkCatalog ? .8 : .4; }
+  private get previewLift() { return bookmarkCatalog ? .6 : .4; }
   onHover?: (index: number | null) => void;
   onNavigate?: (axis: "row" | "lane", direction: number) => void;
   constructor(
