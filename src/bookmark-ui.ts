@@ -4,7 +4,7 @@ import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkStatus } from './bookmarks';
 import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
 import { searchTarget, searchEngines as engines, createBookmarkSearch } from './bookmark-search';
-import { records, archiveColumns, columnFiles, fileLocation } from './data';
+import { records, columnFiles, fileLocation } from './data';
 import { getBookmarkOpenMode, openBookmarkDestination } from './bookmark-navigation';
 const engineNames = { bing: 'Bing', google: 'Google', baidu: '百度' };
 let engine: keyof typeof engines = 'bing';
@@ -27,7 +27,7 @@ export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'star
     <details class="bookmark-icon-help"><summary>图标加载状态与重试</summary><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div></details>`;
   return `<label><div><strong>启动方式 / STARTUP</strong><span>下次打开生效。简短动画在三维就绪后跳转；直接进入仅显示加载提示。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[['full', '完整启动动画'], ['brief', '简短动画 · 就绪即进入'], ['direct', '直接进入三维档案']].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><p class="bookmark-setting-note">自动进入时，声音在首次交互后启用。</p>`;
 }
-export function mountBookmarkUI(selectFolder: (lane: number) => void) {
+export function mountBookmarkUI() {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
   document.addEventListener('click', event => { if ((event.target as Element).closest('[data-retry-icons]')) retryBookmarkIcons(); });
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
@@ -35,13 +35,6 @@ export function mountBookmarkUI(selectFolder: (lane: number) => void) {
   callout.prepend(document.querySelector('.column-navigation')!);
   mountBookmarkSummaryLogo();
   const name = document.querySelector<HTMLElement>('#column-name')!;
-  const picker = document.createElement('div'); picker.className = 'bookmark-folder-control';
-  name.before(picker); picker.append(name);
-  const caret = document.createElement('span'); caret.className = 'bookmark-folder-caret'; caret.textContent = '⌄'; caret.setAttribute('aria-hidden', 'true'); picker.append(caret);
-  const folders = document.createElement('select'); folders.id = 'bookmark-folder-picker'; folders.setAttribute('aria-label', '选择书签文件夹');
-  archiveColumns.forEach((title, lane) => { const option = document.createElement('option'); option.value = String(lane); option.textContent = `${title} · ${columnFiles(lane).filter(i => !records[i].empty).length} 项`; folders.append(option); });
-  picker.append(folders); folders.addEventListener('change', () => selectFolder(Number(folders.value)));
-  folders.addEventListener('keydown', event => event.stopPropagation());
   const position = document.createElement('span'); position.id = 'bookmark-folder-position'; name.closest('.column-navigation > div')!.append(position);
   document.querySelector('#column-number')!.firstChild!.textContent = 'FOLDER / 文件夹 ';
   document.querySelector('[data-action="column-prev"]')!.setAttribute('aria-label', '上一个文件夹');
@@ -137,6 +130,5 @@ export function mountBookmarkUI(selectFolder: (lane: number) => void) {
 export function updateBookmarkFolderPosition(index: number) {
   const location = fileLocation(index), files = columnFiles(location.lane);
   const count = files.filter(i => !records[i].empty).length;
-  document.querySelector<HTMLSelectElement>('#bookmark-folder-picker')!.value = String(location.lane);
   document.querySelector('#bookmark-folder-position')!.textContent = count ? `第 ${files.indexOf(index) + 1} 项 / 共 ${count} 项` : '此文件夹暂无书签';
 }

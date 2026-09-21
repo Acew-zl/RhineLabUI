@@ -104,7 +104,7 @@ $("#boot-background").insertAdjacentHTML(
   '<div class="boot-white"></div>',
 );
 const bootSequence = new BootSequence($("#stage"));
-if (isExtension) mountBookmarkUI(lane => select(columnMemory[lane]));
+if (isExtension) mountBookmarkUI();
 $("#viewport").insertAdjacentHTML("beforeend", '<button class="mobile-entry" data-action="skip">进入档案 <span>→</span></button>');
 
 type Mode = "boot" | "archive" | "detail";
