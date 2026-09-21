@@ -43,6 +43,7 @@ export class BookmarkReadableLayer {
         this.copies.set(object, copy); this.scene.add(copy);
       }
       copy.matrix.copy(object.matrixWorld);
+      if (object.name === 'bookmark-spine') (copy.material as THREE.Material).opacity = (object.material as THREE.Material).opacity;
       if (object instanceof THREE.InstancedMesh && copy instanceof THREE.InstancedMesh) {
         if (copy.instanceMatrix !== object.instanceMatrix) { copy.dispose(); copy.instanceMatrix = object.instanceMatrix; }
         copy.count = object.count;

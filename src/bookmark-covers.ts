@@ -1,5 +1,7 @@
+import { cycleLabelOpacity } from './bookmark-readability';
+import { type ArchiveCell, wrap } from './archive-loop';
 import * as THREE from 'three';
-import { records, type ArchiveRecord } from './data';
+import { records, columnFiles, archiveColumns, type ArchiveRecord } from './data';
 import { faviconSources } from './bookmarks';
 import { loadBookmarkIcon } from './bookmark-icon-loader';
 import { bookmarkColumnColor } from './bookmark-colors';
@@ -59,10 +61,19 @@ export function bookmarkIcon(record: ArchiveRecord, request = true) {
   return url ? icons.get(url) : null;
 }
 
-export function paintBookmarkCover(context: CanvasRenderingContext2D, record: ArchiveRecord, width: number, height: number) {
+export function bookmarkCellOpacity(cell: ArchiveCell, center: ArchiveCell) {
+  return cycleLabelOpacity(cell.lane - center.lane, archiveColumns.length)
+    * cycleLabelOpacity(cell.row - center.row, columnFiles(wrap(cell.lane, archiveColumns.length)).length);
+}
+
+export function paintBookmarkCover(context: CanvasRenderingContext2D, record: ArchiveRecord, width: number, height: number, selected = false) {
   context.clearRect(0, 0, width, height);
+  if (selected) {
+    // Outside the text/icon area (which ends at 89% of the top rail).
+    context.fillStyle = '#ac6525'; context.fillRect(0, height * .95, width, height * .05);
+  }
   if (!coverPreferences.logo && !coverPreferences.title) return;
-  context.fillStyle = '#' + bookmarkColumnColor(record.category).lerp(new THREE.Color('#f3f0e9'), .72).getHexString(); context.fillRect(0, 0, width, height);
+  context.fillStyle = '#' + bookmarkColumnColor(record.category).lerp(new THREE.Color('#f3f0e9'), .72).getHexString(); context.fillRect(0, 0, width, height * .91);
   context.fillStyle = '#171713';
   const icon = bookmarkIcon(record, false);
   const size = height * .78;
@@ -104,6 +115,7 @@ export class BookmarkCovers {
   private width: number;
   private height: number;
   private indexes = new THREE.InstancedBufferAttribute(new Float32Array(288), 1);
+  private visibility = new THREE.InstancedBufferAttribute(new Float32Array(288).fill(1), 1);
   private paintedIcons = new Map<number, ImageBitmap | null | undefined>();
   private unsubscribe: () => void;
   private dirty = false;
@@ -122,12 +134,13 @@ export class BookmarkCovers {
     this.texture.minFilter = THREE.LinearFilter;
     const geometry = bookmarkSpineGeometry();
     geometry.setAttribute('bookmarkIndex', this.indexes);
+    geometry.setAttribute('bookmarkVisibility', this.visibility);
     const material = new THREE.MeshBasicMaterial({ map: this.texture, toneMapped: false, transparent: true, depthWrite: false });
     material.onBeforeCompile = shader => {
-      shader.vertexShader = 'attribute float bookmarkIndex; varying float spineScreenY;\n' + shader.vertexShader;
-      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nspineScreenY = .5 * (gl_Position.y / gl_Position.w + 1.0);');
-      shader.fragmentShader = 'varying float spineScreenY;\n' + shader.fragmentShader;
-      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', 'diffuseColor.a *= 1.0 - smoothstep(.70, .89, spineScreenY);\n#include <opaque_fragment>');
+      shader.vertexShader = 'attribute float bookmarkIndex; attribute float bookmarkVisibility; varying float labelVisibility; varying float spineScreenY;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\nlabelVisibility = bookmarkVisibility;\nspineScreenY = .5 * (gl_Position.y / gl_Position.w + 1.0);');
+      shader.fragmentShader = 'varying float labelVisibility; varying float spineScreenY;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', 'diffuseColor.a *= labelVisibility * (1.0 - smoothstep(.70, .89, spineScreenY));\n#include <opaque_fragment>');
       shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', `#include <uv_vertex>\nvMapUv = vec2((mod(bookmarkIndex, ${this.columns}.0) + mix(.004, .996, uv.x)) / ${this.columns}.0, (${this.rows - 1}.0 - floor(bookmarkIndex / ${this.columns}.0) + mix(.004, .996, uv.y)) / ${this.rows}.0);`);
     };
     material.customProgramCacheKey = () => `bookmark-atlas-${this.columns}-${this.rows}`;
@@ -154,25 +167,34 @@ export class BookmarkCovers {
     for (let i = 0; i < records.length; i++) this.paint(i);
     this.texture.needsUpdate = true; this.invalidate();
   }
-  sync(source: THREE.InstancedMesh, theme: THREE.InstancedBufferAttribute, recordsAtInstances: number[]) {
+  sync(source: THREE.InstancedMesh, theme: THREE.InstancedBufferAttribute, recordsAtInstances: number[], cells?: ArchiveCell[], center?: ArchiveCell) {
     this.mesh.visible = coverPreferences.logo || coverPreferences.title;
     if (!this.mesh.visible) return;
     if (this.indexes.count < source.instanceMatrix.count) {
       this.mesh.dispose();
       this.indexes = new THREE.InstancedBufferAttribute(new Float32Array(source.instanceMatrix.count), 1);
       this.mesh.geometry.setAttribute('bookmarkIndex', this.indexes);
+      this.visibility = new THREE.InstancedBufferAttribute(new Float32Array(source.instanceMatrix.count), 1);
+      this.mesh.geometry.setAttribute('bookmarkVisibility', this.visibility);
     }
     this.mesh.instanceMatrix = source.instanceMatrix;
     this.mesh.geometry.setAttribute('archiveTheme', theme);
     this.mesh.count = recordsAtInstances.length;
-    let changed = false, painted = false;
+    let changed = false, painted = false, visibilityChanged = false;
     for (let i = 0; i < recordsAtInstances.length; i++) {
       const index = recordsAtInstances[i];
+      const cell = cells?.[i];
+      const opacity = records[index].empty ? 0 : cell && center
+        ? bookmarkCellOpacity(cell, center)
+        : 1;
+      const rounded = Math.round(opacity * 1000) / 1000;
+      if (Math.abs(this.visibility.array[i] - rounded) > .0001) { this.visibility.array[i] = rounded; visibilityChanged = true; }
       if (this.indexes.array[i] !== index) { this.indexes.array[i] = index; changed = true; }
       if (coverPreferences.logo) bookmarkIcon(records[index]);
       if (this.dirty && this.paintedIcons.get(index) !== bookmarkIcon(records[index], false)) { this.paint(index); painted = true; }
     }
     if (changed) this.indexes.needsUpdate = true;
+    if (visibilityChanged) { this.visibility.needsUpdate = true; this.invalidate(); }
     if (painted) this.texture.needsUpdate = true;
     // Keep dirty until offscreen icons are painted when they next become visible.
   }

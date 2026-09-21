@@ -1,3 +1,5 @@
+import { isExtension } from './platform';
+import { isBookmarkClearQuality } from './bookmark-clarity';
 import {
   matchingPreset,
   presetLabels,
@@ -46,9 +48,9 @@ function range(
   return `<label class="quality-control quality-range"><span>${label}<small>${hint}</small></span><div><input type="range" data-quality="${key}" aria-label="${label}" min="${min}" max="${max}" step="5" value="${quality[key]}"/><output data-quality-output="${key}">${quality[key]}%</output></div></label>`;
 }
 export function qualityMarkup(quality: RenderQuality) {
-  const preset = matchingPreset(quality);
+  const preset = isExtension && isBookmarkClearQuality(quality) ? 'clear' : matchingPreset(quality);
   return `<section class="quality-settings" aria-label="画质设置">
-    <div class="quality-heading"><h3>RENDER QUALITY <span>渲染画质</span></h3>${choiceControl('id="quality-preset"', "画质预设", preset, (Object.keys(presetLabels) as QualityPreset[]).map(key => [key, presetLabels[key]]))}</div>
+    <div class="quality-heading"><h3>RENDER QUALITY <span>渲染画质</span></h3>${choiceControl('id="quality-preset"', "画质预设", preset, [...(isExtension ? [['clear', '清晰 · 屏幕适配'] as const] : []), ...(Object.keys(presetLabels) as QualityPreset[]).map(key => [key, presetLabels[key]] as const)])}</div>
     <p class="quality-summary" id="quality-summary" aria-live="polite"></p>
     <details class="quality-advanced"><summary>精细设置 <span>清晰度 / 材质 / 阴影</span></summary><div class="quality-grid">
     ${range(quality, "scale", "渲染比例", "相对屏幕像素，受密度上限限制；高比例改善细线", 50, 200)}
@@ -109,14 +111,18 @@ export function qualityMarkup(quality: RenderQuality) {
       [0.5, 0.75, 1].map((v) => [v, `${v * 100}%`]),
     )}
     ${range(quality, "depthOfField", "景深强度 · 阵列", "0% 关闭；100% 保留原始镜头虚化", 0, 150)}
-    </div></details><p class="quality-note">${isWallpaper ? "即时生效，仅限当前运行；长期设置请在 Wallpaper Engine 中调整。" : "即时生效并自动保存。"}清晰度与材质设置同步至 360° 查看器。高渲染比例更适合静态观察；缓冲上限为 829 万像素，硬件限制时自动收敛。</p>
+    </div></details><p class="quality-note">${isWallpaper ? "即时生效，仅限当前运行；长期设置请在 Wallpaper Engine 中调整。" : "即时生效并自动保存。"}${isExtension ? "「清晰」按屏幕密度渲染，并关闭镜头景深虚化；超级性能模式仍优先。" : ""}清晰度与材质设置同步至 360° 查看器。高渲染比例更适合静态观察；缓冲上限为 829 万像素，硬件限制时自动收敛。</p>
   </section>`;
 }
 
 export function syncQualityUI(quality: RenderQuality) {
   const preset = document.querySelector<HTMLSelectElement | HTMLButtonElement>("#quality-preset");
   if (!preset) return;
-  preset.value = matchingPreset(quality);
+  const value = isExtension && isBookmarkClearQuality(quality) ? 'clear' : matchingPreset(quality);
+  if (value === 'custom' && preset instanceof HTMLSelectElement && !preset.querySelector('option[value="custom"]')) {
+    const option = document.createElement('option'); option.value = 'custom'; option.textContent = '自定义'; option.disabled = true; preset.append(option);
+  }
+  preset.value = value;
   document
     .querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("[data-quality]")
     .forEach((control) => {

@@ -1,3 +1,4 @@
+import { BOOKMARK_READING_ELEVATION } from './bookmark-readability';
 import { BookmarkReadableLayer } from './bookmark-readable-layer';
 import { bookmarkColumnColor, bookmarkTintMaterial } from './bookmark-colors';
 import * as THREE from "three";
@@ -23,7 +24,7 @@ import { CardAppearance } from "./appearance";
 import { configureInternalOptics } from "./internal-optics";
 import { DecryptionController } from "./decryption";
 import { fileLocation, bookmarkCatalog, records, archiveColumns } from "./data";
-import { BookmarkCovers, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon } from "./bookmark-covers";
+import { BookmarkCovers, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon, bookmarkCellOpacity } from "./bookmark-covers";
 import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from "./bookmark-spine";
 import {
   cellKey,
@@ -644,7 +645,8 @@ export class ArchiveScene {
       const canvas = document.createElement("canvas");
       canvas.width = source.width;
       canvas.height = source.height;
-      canvas.getContext("2d")!.drawImage(source, 0, 0);
+      if (spine) paintBookmarkCover(canvas.getContext("2d")!, records[this.selectedIndex], canvas.width, canvas.height);
+      else canvas.getContext("2d")!.drawImage(source, 0, 0);
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
@@ -814,6 +816,7 @@ export class ArchiveScene {
         canvas.width = source.width;
         canvas.height = source.height;
         canvas.getContext("2d")!.drawImage(source, 0, 0);
+        if (label.name === 'bookmark-spine') canvas.getContext('2d')!.clearRect(0, canvas.height * .91, canvas.width, canvas.height * .09);
         const map = new THREE.CanvasTexture(canvas);
         map.colorSpace = THREE.SRGBColorSpace;
         map.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
@@ -875,8 +878,8 @@ export class ArchiveScene {
     const c = this.labelCanvas.getContext("2d")!;
     if (bookmarkCatalog && this.spineTexture && this.spineLabel) {
       bookmarkIcon(records[index], coverPreferences.logo);
-      paintBookmarkCover(this.spineCanvas.getContext('2d')!, records[index], this.spineCanvas.width, this.spineCanvas.height);
-      this.spineLabel.visible = coverPreferences.logo || coverPreferences.title;
+      paintBookmarkCover(this.spineCanvas.getContext('2d')!, records[index], this.spineCanvas.width, this.spineCanvas.height, true);
+      this.spineLabel.visible = true;
       this.spineTexture.needsUpdate = true;
     }
     c.fillStyle = "#e6e2d9";
@@ -1548,6 +1551,10 @@ export class ArchiveScene {
       this.tintGroup(o.group, fileAtCell(o.cell));
       o.clarity = this.reduced ? 0 : o.clarity * Math.exp(-dt * 9);
       this.appearance.setClarity(o.group, o.clarity);
+      const returningSpine = o.group.getObjectByName('bookmark-spine') as THREE.Mesh | undefined;
+      if (returningSpine) (returningSpine.material as THREE.Material).opacity = bookmarkCellOpacity(o.cell, {
+        lane: this.trackCoordinate('lane', this.columnCamera.value), row: this.trackCoordinate('row', this.rail.value),
+      });
       const { row, lane } = o.cell;
       o.group.rotation.x =
         (field(row + 0.5, lane) - field(row - 0.5, lane)) *
@@ -1603,7 +1610,7 @@ export class ArchiveScene {
     const orbit = ease((shot - 22.6) / 1.6);
     const settle = ease((shot - 24.25) / 2.25);
     const yaw = THREE.MathUtils.degToRad(89 - 22 * orbit - 8 * settle);
-    const elevation = THREE.MathUtils.degToRad(
+    const elevation = (bookmarkCatalog && !cinematic ? BOOKMARK_READING_ELEVATION : 0) + THREE.MathUtils.degToRad(
       3 + 40 * ease((shot - 21.96) / 0.22) - 8 * orbit - 16 * settle,
     );
     const span = THREE.MathUtils.lerp(
@@ -1812,7 +1819,7 @@ export class ArchiveScene {
     if (matricesChanged || countChanged || !this.instances[0].boundingSphere) this.instances[0].computeBoundingSphere();
     this.themeUpdates?.commit();
     this.tintUpdates?.commit();
-    this.bookmarkCovers?.sync(this.instances[0], this.themeAttribute!, this.drawnCells.map(fileAtCell));
+    this.bookmarkCovers?.sync(this.instances[0], this.themeAttribute!, this.drawnCells.map(fileAtCell), this.drawnCells, { lane: this.trackCoordinate("lane", this.columnCamera.value), row: this.trackCoordinate("row", this.rail.value) });
     let neighborTop = -Infinity;
     const lane = selectedLane,
       row = selectedRow;

@@ -131,3 +131,33 @@
 .bookmark-icon-help { padding-top: 14px; font-size: 12px; color: var(--theme-muted, #77756d); }
 .bookmark-icon-help > summary { cursor: pointer; padding: 5px 0; }
 .bookmark-setting-note { font-size: 12px; line-height: 1.7; color: var(--theme-muted, #77756d); margin: 12px 0 0; }
+
+/* Folder identity and position stay together; the native picker handles keyboard access. */
+.bookmark-folder-control { position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; }
+.bookmark-folder-control #column-name { flex: 1; min-width: 0; }
+.bookmark-folder-caret { flex: none; font-size: 20px; }
+#bookmark-folder-picker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.bookmark-folder-control:focus-within { outline: 2px solid var(--theme-accent, #a67d48); outline-offset: 5px; }
+#bookmark-folder-position { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); color: var(--theme-muted, #68665e); letter-spacing: .3px; }
+[data-bookmarks="true"] .column-navigation > div { overflow: visible; }
+.bookmark-result-logo { flex: 0 0 28px; width: 28px; height: 28px; }
+#bookmark-suggestions [role="option"] { display: flex; align-items: center; gap: 12px; }
+.bookmark-result-identity { display: block; flex: 1; min-width: 0; }
+[data-bookmarks="true"] .result-name { min-width: 0; gap: 12px; }
+[data-bookmarks="true"] .result-name > b { display: none; }
+[data-bookmarks="true"] .result-name > span { min-width: 0; }
+/* Minimum readable sizes are in display pixels, independent of the 1080p stage. */
+[data-bookmarks="true"] :is(.bookmark-search-heading, .bookmark-search-caption, .archive-hint, .settings-label, .column-navigation #column-number) { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] .archive-hint { color: var(--theme-ink, #292922); }
+[data-bookmarks="true"] .archive-hint kbd { font-size: inherit; }
+[data-bookmarks="true"] .bookmark-search .search-field input { font-size: max(18px, calc(16 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] .bookmark-search .search-field input::placeholder { font-size: max(16px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] :is(#bookmark-suggestions strong, .result-name > span, .category-filters button, .system-nav button, .archive-callout .bookmark-actions > button) { font-size: max(14px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] :is(#bookmark-suggestions small, .result-name small, .settings-list label span, .bookmark-setting-note, .motion-preference-note, .quality-control small, .quality-summary, .quality-note, .bookmark-icon-help, .bookmark-icon-status) { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] :is(.settings-list strong, .settings-list select, .bookmark-settings-group > summary, .quality-heading h3, .quality-settings select, .quality-control > span, .quality-advanced > summary) { font-size: max(14px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] .settings-label { letter-spacing: 0; }
+[data-bookmarks="true"] .bookmark-search-caption { flex-wrap: wrap; }
+[data-bookmarks="true"] .result-row { min-height: max(64px, calc(54 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] :is(.result-row > span:not(.result-name), .result-header, .modal-top button, .audio-volume output, .quality-range output) { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] .terminal-modal .search-field input { font-size: max(16px, calc(16 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"] .terminal-modal .search-field input::placeholder { font-size: max(14px, calc(14 * var(--bookmark-ui-unit, 1px))); }

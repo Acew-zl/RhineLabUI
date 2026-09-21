@@ -1,4 +1,5 @@
-import { updateBookmarkSummary, setBookmarkSummaryLogo } from './bookmark-summary';
+import { bookmarkClearQuality, migrateBookmarkQuality } from './bookmark-clarity';
+import { updateBookmarkSummary, setBookmarkSummaryLogo, bookmarkResultIcon, refreshBookmarkResultIcons } from './bookmark-summary';
 import { getBookmarkStartupMode, setBookmarkStartupMode, bookmarkStartupReady } from './bookmark-startup';
 import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkColumnColor } from './bookmark-colors';
@@ -19,7 +20,7 @@ import { viewportLayout, openingLayout } from "./viewport-layout";
 import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension } from './platform';
-import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch } from './bookmark-ui';
+import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition } from './bookmark-ui';
 import { saveCoverPreference } from './bookmark-covers';
 import { openBookmarkDestination, setBookmarkOpenMode } from './bookmark-navigation';
 import './bookmarks.css';
@@ -103,7 +104,7 @@ $("#boot-background").insertAdjacentHTML(
   '<div class="boot-white"></div>',
 );
 const bootSequence = new BootSequence($("#stage"));
-if (isExtension) mountBookmarkUI();
+if (isExtension) mountBookmarkUI(lane => select(columnMemory[lane]));
 $("#viewport").insertAdjacentHTML("beforeend", '<button class="mobile-entry" data-action="skip">进入档案 <span>→</span></button>');
 
 type Mode = "boot" | "archive" | "detail";
@@ -155,7 +156,7 @@ function readLocal<T>(key: string, fallback: T): T {
 const savedStore = isExtension ? 'rhine-bookmark-saved' : 'rhine-saved';
 const savedKey = (record: typeof records[number]) => record.bookmarkId ?? record.id;
 const saved = new Set<string>(readLocal<string[]>(savedStore, []));
-const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; quality: boolean; rendering: RenderQuality; superPerformance: boolean; colorTheme: "light" | "dark" }>>("rhine-settings", {});
+const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; quality: boolean; rendering: RenderQuality; superPerformance: boolean; bookmarkClarityVersion: number; colorTheme: "light" | "dark" }>>("rhine-settings", {});
 const prefs = {
   sound: true,
   music: storedPrefs.sound ?? true,
@@ -165,9 +166,13 @@ const prefs = {
   quality: true,
   superPerformance: false,
   ...storedPrefs,
-  rendering: normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false),
+  rendering: isExtension ? migrateBookmarkQuality(normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false), storedPrefs.bookmarkClarityVersion) : normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false),
+  bookmarkClarityVersion: isExtension ? 1 : storedPrefs.bookmarkClarityVersion,
   colorTheme: storedPrefs.colorTheme === "dark" ? "dark" : "light",
 };
+if (isExtension && storedPrefs.bookmarkClarityVersion !== 1) {
+  try { localStorage.setItem('rhine-settings', JSON.stringify(prefs)); } catch { /* Session only. */ }
+}
 paintTheme(prefs.colorTheme === "dark" ? 1 : 0);
 const rollingMotion = {
   duration: 460,
@@ -314,7 +319,11 @@ function fit() {
     : viewportLayout(viewport.clientWidth, viewport.clientHeight, coarse, mode === "boot");
   stage.style.width = `${width}px`;
   stage.style.height = `${height}px`;
-  stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  const nativeText = isExtension && mode !== 'boot';
+  stage.style.zoom = nativeText ? String(scale) : '1';
+  stage.style.left = stage.style.top = nativeText ? '0' : '50%';
+  stage.style.transform = nativeText ? 'none' : `translate(-50%, -50%) scale(${scale})`;
+  stage.style.setProperty('--bookmark-ui-unit', `${1 / scale}px`);
   stage.dataset.layout = kind;
   stage.dataset.touch = String(coarse);
   viewport.dataset.mobileBoot = String(mode === "boot" && (coarse || viewport.clientWidth < 1100));
@@ -347,6 +356,13 @@ function fit() {
   });
 }
 window.addEventListener("resize", fit);
+// Moving to a screen with a different density need not change CSS viewport size.
+function watchPixelDensity() {
+  matchMedia(`(resolution: ${devicePixelRatio}dppx)`).addEventListener('change', () => {
+    fit(); watchPixelDensity();
+  }, { once: true });
+}
+watchPixelDensity();
 window.visualViewport?.addEventListener("resize", fit);
 window.visualViewport?.addEventListener("scroll", fit);
 matchMedia("(pointer: coarse)").addEventListener("change", fit);
@@ -452,7 +468,7 @@ function updateSelection(navigation?: ArchiveNavigation) {
   }
   selectionTitle.update({ text: isExtension ? bookmarkDisplayTitle(r) : r.title, animated: !prefs.reduced && mode === "archive" });
   $("#selected-title").title = isExtension ? bookmarkDisplayTitle(r) : r.title;
-  if (isExtension) updateBookmarkSummary(r);
+  if (isExtension) { updateBookmarkSummary(r); updateBookmarkFolderPosition(selected); }
   if (isExtension) $("#stage").style.setProperty("--bookmark-column-color", "#" + bookmarkColumnColor(r.category).getHexString());
   clearanceTitle.update({ text: r.clearance, animated: !prefs.reduced && mode === "archive" });
   categoryTitle.update({ text: r.category, animated: !prefs.reduced && mode === "archive" });
@@ -695,10 +711,11 @@ function renderResults() {
     ? results
         .map(
           ({ r, i }) =>
-            `<button class="result-row" data-result="${i}"><span class="result-name"><b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`,
+            `<button class="result-row" data-result="${i}"><span class="result-name">${isExtension && r.bookmarkUrl ? bookmarkResultIcon(i) : ""}<b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`,
         )
         .join("")
     : `<div class="empty-results"><span>∅</span><strong>${modal === "saved" && !searchQuery ? "尚无收藏档案" : "没有匹配的档案"}</strong><p>${modal === "saved" && !searchQuery ? "读取档案时，选择 SAVE ARCHIVE 将其保存在此处。" : "尝试其他名称、档案编号，或切换科室分类。"}</p><button data-action="reset-search">${modal === "saved" ? "查看全部档案 →" : "重置检索 →"}</button></div>`;
+  if (isExtension) refreshBookmarkResultIcons();
   $("#result-count").textContent =
     `${String(results.length).padStart(2, "0")} RECORDS FOUND`;
 }
@@ -708,7 +725,7 @@ function updateQualitySummary() {
   if (!scene) { summary.textContent = "3D 已关闭 · 三维模型与渲染资源已释放"; return; }
   const canvas = scene.renderer.domElement;
   const metrics = JSON.parse(canvas.parentElement?.dataset.renderQuality ?? "{}");
-  summary.textContent = `${superPerformanceEnabled() ? "超级性能模式已启用 · 画质设置暂被覆盖，关闭后恢复 · " : ""}实际渲染 ${canvas.width} × ${canvas.height} · ${effectiveRenderQuality().antialias === "smaa" ? "SMAA" : "原始抗锯齿"} · 纹理 ${metrics.anisotropy ?? 1}×${metrics.limited ? " · 已达到缓冲上限" : ""}`;
+  summary.textContent = `${superPerformanceEnabled() ? "超级性能模式已启用 · 画质设置暂被覆盖，关闭后恢复 · " : ""}实际渲染 ${canvas.width} × ${canvas.height} · ${effectiveRenderQuality().antialias === "smaa" ? "SMAA" : "原始抗锯齿"} · 纹理 ${metrics.anisotropy ?? 1}×${metrics.limited ? " · 已达到缓冲上限" : ""}${isExtension ? ` · 屏幕目标 ${Math.round(canvas.getBoundingClientRect().width * devicePixelRatio)} × ${Math.round(canvas.getBoundingClientRect().height * devicePixelRatio)}` : ""}`;
 }
 function motionSettingsMarkup() {
   return `<div id="motion-preference-note" class="motion-preference-note"><p>${prefs.reduced
@@ -754,6 +771,7 @@ document.addEventListener("change", (e) => {
   if (el.id === 'bookmark-open-mode') setBookmarkOpenMode(el.value);
   if (el.id === 'bookmark-summary-logo') setBookmarkSummaryLogo(el.checked);
   if (el.id === 'bookmark-startup-mode') setBookmarkStartupMode(el.value);
+  if (isExtension && el.id === 'quality-preset' && el.value === 'clear') { prefs.rendering = { ...bookmarkClearQuality }; savePrefs(); }
   if (el.id === "quality-preset" && Object.hasOwn(qualityPresets, el.value)) {
     prefs.rendering = { ...qualityPresets[el.value as QualityPreset] };
     savePrefs();
