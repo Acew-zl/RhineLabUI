@@ -15,6 +15,8 @@ for (const name of ['atmosphere', 'motif', 'pulse'])
 await copyFile('public/favicon.svg', join(root, 'favicon.svg'));
 await copyFile('extension/manifest.json', join(root, 'manifest.json'));
 await copyFile('LICENSE', join(root, 'LICENSE'));
+for (const name of ['PRIVACY.md', 'THIRD_PARTY_NOTICES.md']) await copyFile(name, join(root, name));
+await copyFile('node_modules/three/LICENSE', join(root, 'licenses/three.txt'));
 let bytes = 0, files = 0;
 for (const file of await readdir(root, { recursive: true })) {
   const info = await stat(join(root, file));
