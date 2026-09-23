@@ -64,13 +64,15 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 安装验收
 
+Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 商店版本仍在审核；其他桌面 Chromium 浏览器可使用 [GitHub Release 中的 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)，解压后按以下步骤加载。ZIP 内的 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
+
 1. 在项目目录执行 `npm ci`（首次安装），再执行 `npm run build:extension`。需要 Node.js 24。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。
 3. 开启「开发者模式」，点击「加载已解压的扩展程序」。
 4. 选择项目中的 **`release/extension`** 文件夹，即包含 `manifest.json` 的那一层。
 5. 新建标签页；若浏览器询问是否保留新的新标签页，选择保留。
 
-本机验收路径：`D:\Project\RhineLabUI\release\extension`。安装后运行不需要 Node、终端或开发服务器。也可以把整个文件夹发给别人，以同样方式加载；面向普通用户的一键安装需后续上架扩展商店。
+本机验收路径：`D:\Project\RhineLabUI\release\extension`。安装后运行不需要 Node、终端或开发服务器。也可以把整个文件夹发给别人，以同样方式加载。Vivaldi 需在浏览器设置中允许扩展控制新标签页。
 
 修改源码后重新执行 `npm run build:extension`，在扩展管理页点击此扩展的「重新加载」，再新开标签页。关闭或移除此扩展即可恢复浏览器原来的新标签页。当前替换的是新标签页；启动浏览器时是否打开新标签页由浏览器的「启动时」设置决定。
 

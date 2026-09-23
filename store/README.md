@@ -1,11 +1,11 @@
 # 商店提交材料与状态
 
-更新：2026-09-22。版本：0.8.2。**尚未提交审核，尚未上架；没有商店安装链接。**
+更新：2026-09-23。版本：0.8.2。**Edge 已正式上线，Chrome 据用户反馈仍在审核；GitHub 下载见 Release。**
 
-## 当前阻塞
+## 发布状态
 
-- Chrome：已看到当前账号的开发者后台标签页，但浏览器控制明确返回“extensions gallery cannot be scripted”。本任务不绕过该限制，Chrome 最后的后台上传与提交需用户手动操作。
-- Edge：按用户最新要求暂缓。本轮没有提交 Edge 审核；最后观察到的状态为个人账号已登录、开发者注册尚未完成。
+- Chrome：用户已提交 0.8.2，当前反馈为审核中。Chrome 后台不能通过当前浏览器控制自动操作，后续状态以用户后台为准。
+- Edge：[商店条目](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp)已公开，开发者后台显示 Live，版本 0.8.2。
 
 ## 上传材料
 
@@ -19,24 +19,24 @@
 | `store/media/promo-440x280.png` | 小宣传图，两店均可用 |
 | `store/media/01-light-1280x800.jpg` | 亮色实际界面截图 |
 | `store/media/03-search-1280x800.jpg` | 本地书签搜索实际截图 |
-| `PRIVACY.md` | 中英文隐私说明；推送后可使用 GitHub 公开链接 |
+| `PRIVACY.md` | 中英文隐私说明；GitHub 公开链接已可使用 |
 | `THIRD_PARTY_NOTICES.md` | 上游、字体、依赖、原片采样及非官方身份说明 |
 
 截图来自最终扩展构建的本机 HTTP 演示页，保留演示数据提示，未使用真实个人书签，HTTP 没有浏览器 favicon 接口，图标显示占位。截图为浏览器直接输出，没有伪造安装、评价或商店背书。小宣传图由代码绘制，源码为 `store/media/promo-small.svg`。
 
-## Chrome 手动提交
+## Chrome 手动提交记录
 
 逐项填写可直接使用 [Chrome 上架操作清单](CHROME-PUBLISH.md)。
 
-1. 在当前已登录的 Chrome Web Store 开发者后台创建新条目，上传 `release/RhineLab-NewTab-0.8.2.zip`。
+1. 首次提交流程已由用户在 Chrome Web Store 开发者后台完成，上传的是 `release/RhineLab-NewTab-0.8.2.zip`；今后更新应上传到同一条目。
 2. 商店详情中按 LISTING.md 填写中文介绍、语言与类别，上传 128px 图标、小宣传图和截图。
 3. 隐私页填单一用途、bookmarks 与 favicon 权限说明、无远程代码，以及隐私政策链接。按照表单对“收集”的定义如实披露本地处理与主动外部搜索，不把“不上传开发者”误写为“不处理任何用户数据”。
 4. 核对当前账号的发布者身份、公开联系信息、地区与免费公开分发；协议、权利和政策承诺由账号持有人审阅后处理。
 5. 完成后台校验后提交审核；通过前不应写“已上架”。保存扩展 ID 和商店 URL，以后更新上传到同一条目。
 
-## Edge 提交
+## Edge 商店
 
-完成 Microsoft Edge 开发者注册后，进入 Edge 扩展工作区创建新条目，上传同一扩展 ZIP，填写 LISTING.md 中的内容、隐私说明与审核测试步骤，并添加 300px 图标和截图。免费公开分发。未完成注册前无法代建条目。
+当前 0.8.2 已经公开，可在上方商店链接安装。今后更新请在现有条目上传更高版本，不要另建条目。
 
 ## 授权和审核边界
 

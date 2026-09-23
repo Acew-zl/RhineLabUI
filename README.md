@@ -1,8 +1,8 @@
 # Rhine Lab · 莱茵生命起始页
 
-把浏览器书签栏变成可交互的三维档案阵列。基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 改造，保留莱茵生命终端的玻璃档案、开场动画与声音，作为 Chrome / Edge 的新标签页使用。
+把浏览器书签栏变成可交互的三维档案阵列。基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 改造，保留莱茵生命终端的玻璃档案、开场动画与声音，作为桌面 Chromium 浏览器的新标签页使用。
 
-**当前扩展版本：0.8.2** · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-21.md)
+**当前扩展版本：0.8.2** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 下载 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-21.md)
 
 ![三维书签阵列：顶部书脊显示书签名称，右侧显示文件夹与选中书签](store/media/01-light-1280x800.jpg)
 
@@ -20,7 +20,9 @@
 
 ## 安装
 
-面向支持 Manifest V3 的桌面 Chromium 浏览器，主要在 Chrome / Edge 验证。需要 WebGL 2。当前安装方式为加载已解压扩展。
+面向支持 Manifest V3 和 WebGL 2 的桌面 Chromium 浏览器。**Edge 已在商店上线**，可直接点击上方链接安装。Chrome 商店版本据用户反馈仍在审核；审核完成后补充正式链接。
+
+GitHub Release 的同一份 Chromium ZIP 可解压后加载到 Chrome、Edge、Brave、Opera、Vivaldi 等桌面浏览器。这些浏览器共用代码包，Chrome / Edge 已验证；其他浏览器尚未完成逐一实机测试，具体兼容性可能因其新标签页和图标接口实现而异。Vivaldi 还需在「设置 → 标签页 → 新标签页」开启「由扩展控制」。Firefox 需要单独适配并经 Mozilla 签名，Safari 需要通过 Apple 的扩展打包与审核流程，本版未提供可安装包。
 
 ### 从源码构建
 
@@ -74,7 +76,7 @@ npm run build:extension
 
 “清晰 · 屏幕适配”按实际屏幕密度渲染并关闭景深虚化，仍受 GPU 和像素上限约束。旧默认画质首次升级会迁移，已自定义的画质保持不变。设备负载较高时可以选择性能档或超级性能模式；这与是否保留动画分别设置。
 
-隐私处理详情见 [隐私政策](PRIVACY.md)。商店发布进度与提交材料见 [store/README.md](store/README.md)；当前尚无商店安装链接。
+隐私处理详情见 [隐私政策](PRIVACY.md)。商店发布进度与提交材料见 [store/README.md](store/README.md)；Edge 商店安装链接见页首，Chrome 正在审核。
 
 ## 本地资源与权限
 
