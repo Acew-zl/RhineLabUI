@@ -2,7 +2,9 @@
 
 把浏览器书签栏变成可交互的三维档案阵列。基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 改造，保留莱茵生命终端的玻璃档案、开场动画与声音，作为桌面 Chromium 浏览器的新标签页使用。
 
-**当前扩展版本：0.8.2** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 下载 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-21.md)
+**完整版：0.8.2；Chrome 商店专用包：0.8.3（待重新审核）** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 完整版 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-21.md)
+
+Chrome 专用包的构建、校验及重新提交说明见 [0.8.3 验证记录](verification/CHROME-STORE-0.8.3.md)和 [Chrome 上架操作清单](store/CHROME-PUBLISH.md)。
 
 ![三维书签阵列：顶部书脊显示书签名称，右侧显示文件夹与选中书签](store/media/01-light-1280x800.jpg)
 
@@ -13,14 +15,14 @@
 - **书签变成档案**：书签栏根部的书签组成第一列；每个顶层文件夹各占一列，嵌套文件夹中的书签归入所属顶层列。左右切文件夹、上下选书签，支持循环浏览和各列选档记忆。
 - **顶部书脊标记**：显示网站 Logo 和浏览器保存的书签名称，可分别开关；空名称保持为空。不同文件夹用淡色区分，选中档案抬起并带有下沿细线，正面保留原有莱茵标签。
 - **保留导航页**：打开书签和搜索结果默认新建标签页，也可在设置中改为覆盖当前页。
-- **网络与书签搜索**：顶部搜索栏可输入关键词或网址，同时显示本地书签匹配；支持 Bing、Google、百度，另有完整档案索引。
+- **网络与书签搜索**：顶部搜索栏可输入关键词或网址，同时显示本地书签匹配；Chrome 商店版遵循浏览器默认搜索引擎，Edge／GitHub 完整版支持自行选择 Bing、Google、百度。另有完整档案索引。
 - **三种启动方式**：完整动画、简短动画后就绪即进入、直接进入三维档案。前段动画期间预加载模型与渲染资源，资源未就绪时继续等待。
 - **清晰度与配色**：亮色 / 暗色、清晰画质、性能画质及精细设置；书脊采用独立屏幕分辨率渲染层。减少动态效果与超级性能模式独立控制。
 - **档案详情与 360° 查看器**：双击选中档案可查看详情，并进入模型旋转、缩放、拆解和重组。
 
 ## 安装
 
-面向支持 Manifest V3 和 WebGL 2 的桌面 Chromium 浏览器。**Edge 已在商店上线**，可直接点击上方链接安装。Chrome 商店版本据用户反馈仍在审核；审核完成后补充正式链接。
+面向支持 Manifest V3 和 WebGL 2 的桌面 Chromium 浏览器。**Edge 已在商店上线**，可直接点击上方链接安装。Chrome 0.8.2 因新标签页自行选择网络搜索引擎被拒；已另备使用浏览器默认搜索的 0.8.3 商店专用包，等待重新提交与审核。
 
 GitHub Release 的同一份 Chromium ZIP 可解压后加载到 Chrome、Edge、Brave、Opera、Vivaldi 等桌面浏览器。这些浏览器共用代码包，Chrome / Edge 已验证；其他浏览器尚未完成逐一实机测试，具体兼容性可能因其新标签页和图标接口实现而异。Vivaldi 还需在「设置 → 标签页 → 新标签页」开启「由扩展控制」。Firefox 需要单独适配并经 Mozilla 签名，Safari 需要通过 Apple 的扩展打包与审核流程，本版未提供可安装包。
 
@@ -89,7 +91,7 @@ npm run build:extension
 | `bookmarks` | 读取书签树，监听书签变化 |
 | `favicon` | 读取浏览器缓存的网站图标 |
 
-不使用第三方图标服务，不上传书签列表，不请求远程搜索联想。只有主动提交网络搜索时，查询才会交给所选搜索引擎。扩展不注册网页 PWA，也不包含后台常驻进程。
+不使用第三方图标服务，不上传书签列表，不请求远程搜索联想。只有主动提交网络搜索时，查询才会交给搜索引擎；Chrome 商店版遵循浏览器默认设置，完整版使用用户在扩展内的选择。扩展不注册网页 PWA，也不包含后台常驻进程。
 
 ## 开发
 

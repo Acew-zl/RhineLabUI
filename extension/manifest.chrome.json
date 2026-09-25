@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Rhine Lab · 莱茵生命起始页",
+  "description": "将书签栏变成可交互的三维档案新标签页，支持本地书签搜索、网站图标和明暗主题。",
+  "version": "0.8.3",
+  "permissions": [
+    "bookmarks",
+    "favicon",
+    "search"
+  ],
+  "minimum_chrome_version": "120",
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "icons": {
+    "128": "icons/icon-128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; style-src 'self' 'unsafe-inline'"
+  },
+  "homepage_url": "https://github.com/Acew-zl/RhineLabUI"
+}

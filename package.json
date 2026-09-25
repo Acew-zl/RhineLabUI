@@ -19,6 +19,8 @@
     "preview:extension": "node scripts/serve-extension.mjs",
     "check:extension": "node scripts/check-extension.mjs && node --experimental-strip-types --test scripts/check-presentation-preparation.mjs scripts/check-bookmarks.mjs scripts/check-bookmark-readability.mjs",
     "build:extension": "npm run prebuild && tsc && vite build --mode extension --outDir release/extension && node scripts/build-extension.mjs && node scripts/check-extension.mjs",
+    "build:extension:chrome": "npm run prebuild && tsc && vite build --mode extension-chrome --outDir release/extension-chrome && node scripts/build-extension.mjs --chrome-store && node scripts/check-extension.mjs --chrome-store",
+    "check:extension:chrome": "node scripts/check-extension.mjs --chrome-store && node --experimental-strip-types --test scripts/check-chrome-search.mjs",
     "build:wallpaper": "node scripts/patch-rolling-number.mjs && node scripts/export-records.mjs && tsc && vite build --mode wallpaper --outDir release/wallpaper && node scripts/build-wallpaper.mjs",
     "format": "prettier --write src scripts index.html package.json tsconfig.json",
     "preview": "vite preview --host 127.0.0.1"

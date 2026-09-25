@@ -3,22 +3,17 @@ import { getBookmarkStartupMode } from './bookmark-startup';
 import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkStatus } from './bookmarks';
 import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
-import { searchTarget, searchEngines as engines, createBookmarkSearch } from './bookmark-search';
+import { createBookmarkSearch } from './bookmark-search';
+import { searchTarget, engineNames, engineOptions, getSearchEngine, bindSearchEngineSelect } from '@search-provider';
+import { submitChromeSearch } from './chrome-search';
+import { isChromeStore } from './platform';
 import { records, columnFiles, fileLocation } from './data';
 import { getBookmarkOpenMode, openBookmarkDestination } from './bookmark-navigation';
-const engineNames = { bing: 'Bing', google: 'Google', baidu: '百度' };
-let engine: keyof typeof engines = 'bing';
-try { const saved = localStorage.getItem('rhine-search-engine'); if (saved && Object.hasOwn(engines, saved)) engine = saved as keyof typeof engines; } catch { /* Default. */ }
-export function setSearchEngine(value: string) {
-  if (!Object.hasOwn(engines, value)) return;
-  engine = value as keyof typeof engines;
-  try { localStorage.setItem('rhine-search-engine', engine); } catch { /* Session only. */ }
-  document.querySelectorAll<HTMLSelectElement>('[data-search-engine]').forEach(select => { select.value = engine; });
-}
+export { setSearchEngine } from '@search-provider';
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
 export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'startup') {
   if (section === 'navigation') return `
-    <label><div><strong>搜索引擎 / SEARCH ENGINE</strong><span>网络搜索默认使用的引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${Object.keys(engines).map(key => `<option value="${key}" ${engine === key ? 'selected' : ''}>${engineNames[key as keyof typeof engines]}</option>`).join('')}</select></label>
+    ${isChromeStore ? '<p class="bookmark-setting-note">网络搜索使用 Chrome 当前的默认搜索引擎，可在浏览器设置中修改。</p>' : `<label><div><strong>搜索引擎 / SEARCH ENGINE</strong><span>网络搜索默认使用的引擎</span></div><select id="bookmark-search-engine" aria-label="搜索引擎">${engineOptions.map(key => `<option value="${key}" ${getSearchEngine() === key ? 'selected' : ''}>${engineNames[key as keyof typeof engineNames]}</option>`).join('')}</select></label>`}
     <label><div><strong>链接打开方式 / OPEN LINKS</strong><span>应用于书签与搜索结果；新标签页会保留当前导航</span></div><select id="bookmark-open-mode" aria-label="链接打开方式"><option value="new-tab" ${getBookmarkOpenMode() === 'new-tab' ? 'selected' : ''}>新标签页（默认）</option><option value="current-tab" ${getBookmarkOpenMode() === 'current-tab' ? 'selected' : ''}>当前页</option></select></label>`;
   if (section === 'display') return `
     <label><div><strong>名称旁的网站 Logo</strong><span>在右侧选中书签的名称左边显示，独立于书脊设置</span></div><input type="checkbox" id="bookmark-summary-logo" ${getBookmarkSummaryLogo() ? 'checked' : ''}/><i class="toggle"></i></label>
@@ -40,7 +35,7 @@ export function mountBookmarkUI() {
   document.querySelector('[data-action="column-prev"]')!.setAttribute('aria-label', '上一个文件夹');
   document.querySelector('[data-action="column-next"]')!.setAttribute('aria-label', '下一个文件夹');
   document.querySelector('.system-nav [data-action="search"] .key')?.remove();
-  document.querySelector('#archive-ui')!.insertAdjacentHTML('beforeend', `<form class="bookmark-search" role="search" aria-label="网络与书签搜索"><div class="bookmark-search-heading"><label for="web-search">SEARCH / 检索</label><select data-search-engine aria-label="搜索栏引擎">${Object.entries(engineNames).map(([key, label]) => `<option value="${key}" ${engine === key ? 'selected' : ''}>${label}</option>`).join('')}</select><span class="key" aria-hidden="true">/</span></div><div class="search-field"><span aria-hidden="true">⌕</span><input id="web-search" type="text" role="combobox" aria-autocomplete="list" aria-controls="bookmark-suggestions" aria-expanded="false" autocomplete="off" spellcheck="false" placeholder="搜索、输入网址或查找书签" aria-label="搜索网络或输入网址"/><button class="search-clear" type="button" aria-label="清空搜索" hidden>×</button><button class="search-submit" type="submit" aria-label="开始搜索">↗</button></div><div class="bookmark-search-popup" hidden><div class="bookmark-search-caption">BOOKMARKS / 本地书签<span>↑ ↓ 选择 · ENTER 打开</span></div><div id="bookmark-suggestions" role="listbox" aria-label="匹配的书签"></div><p class="bookmark-search-empty" hidden>没有匹配的书签 · 按 Enter 搜索网络</p></div><div class="search-announcement" aria-live="polite"></div></form>`);
+  document.querySelector('#archive-ui')!.insertAdjacentHTML('beforeend', `<form class="bookmark-search" role="search" aria-label="网络与书签搜索"><div class="bookmark-search-heading"><label for="web-search">SEARCH / 检索</label>${isChromeStore ? '<span class="bookmark-default-search">浏览器默认搜索</span>' : `<select data-search-engine aria-label="搜索栏引擎">${Object.entries(engineNames).map(([key, label]) => `<option value="${key}" ${getSearchEngine() === key ? 'selected' : ''}>${label}</option>`).join('')}</select>`}<span class="key" aria-hidden="true">/</span></div><div class="search-field"><span aria-hidden="true">⌕</span><input id="web-search" type="text" role="combobox" aria-autocomplete="list" aria-controls="bookmark-suggestions" aria-expanded="false" autocomplete="off" spellcheck="false" placeholder="搜索、输入网址或查找书签" aria-label="搜索网络或输入网址"/><button class="search-clear" type="button" aria-label="清空搜索" hidden>×</button><button class="search-submit" type="submit" aria-label="开始搜索">↗</button></div><div class="bookmark-search-popup" hidden><div class="bookmark-search-caption">BOOKMARKS / 本地书签<span>↑ ↓ 选择 · ENTER 打开</span></div><div id="bookmark-suggestions" role="listbox" aria-label="匹配的书签"></div><p class="bookmark-search-empty" hidden>没有匹配的书签 · 按 Enter 搜索网络</p></div><div class="search-announcement" aria-live="polite"></div></form>`);
   const form = document.querySelector<HTMLFormElement>('.bookmark-search')!;
   const input = form.querySelector<HTMLInputElement>('#web-search')!;
   const popup = form.querySelector<HTMLElement>('.bookmark-search-popup')!;
@@ -101,14 +96,21 @@ export function mountBookmarkUI() {
   });
   clear.addEventListener('click', () => { input.value = ''; update(); input.focus(); });
   form.querySelector('.search-submit')!.addEventListener('click', () => { active = -1; });
-  form.querySelector<HTMLSelectElement>('[data-search-engine]')!.addEventListener('change', event => setSearchEngine((event.target as HTMLSelectElement).value));
+  bindSearchEngineSelect(form);
   document.addEventListener('pointerdown', event => { if (!form.contains(event.target as Node)) close(); });
   form.addEventListener('focusout', () => { queueMicrotask(() => { if (!form.contains(document.activeElement)) close(); }); });
   form.addEventListener('submit', event => {
     event.preventDefault();
     if (composing) return;
-    const target = active >= 0 ? matches[active]?.bookmarkUrl : searchTarget(input.value, engine);
-    if (target) openBookmarkDestination(target);
+    if (active >= 0) {
+      const target = matches[active]?.bookmarkUrl;
+      if (target) openBookmarkDestination(target);
+    } else if (isChromeStore) {
+      void submitChromeSearch(input.value, getBookmarkOpenMode()).catch(() => { announce.textContent = '浏览器默认搜索暂时不可用，请重试。'; });
+    } else {
+      const target = searchTarget(input.value, getSearchEngine());
+      if (target) openBookmarkDestination(target);
+    }
   });
   const status = document.createElement('div');
   status.className = 'bookmark-status'; status.setAttribute('role', 'status');

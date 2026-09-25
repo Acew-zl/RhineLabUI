@@ -1,5 +1,7 @@
 # 浏览器起始页 · 0.8.2 阅读与清晰度
 
+Chrome 商店另有 0.8.3 专用构建：`npm run build:extension:chrome` 输出 `release/extension-chrome`。该版本保留本地书签检索、网址直达和打开方式设置，但网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在下文所述 0.8.2 完整版。重新提交材料见 [Chrome 上架操作清单](../store/CHROME-PUBLISH.md)。
+
 当前 Fork：[Acew-zl/RhineLabUI](https://github.com/Acew-zl/RhineLabUI)。本地 `origin` 指向此仓库，`upstream` 保留原作者仓库。
 
 Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案阵列动效和画质，扩展内将档案映射到浏览器书签栏，新增搜索框及书脊标记。档案正面恢复原始莱茵标签与编号。普通网页仍显示原档案。
@@ -64,7 +66,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 安装验收
 
-Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 商店版本仍在审核；其他桌面 Chromium 浏览器可使用 [GitHub Release 中的 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)，解压后按以下步骤加载。ZIP 内的 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
+Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.2 被拒，0.8.3 专用包待重新提交；其他桌面 Chromium 浏览器可使用 [GitHub Release 中的完整版 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)，解压后按以下步骤加载。ZIP 内的 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
 
 1. 在项目目录执行 `npm ci`（首次安装），再执行 `npm run build:extension`。需要 Node.js 24。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。

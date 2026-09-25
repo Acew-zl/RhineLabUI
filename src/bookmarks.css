@@ -2,6 +2,7 @@
 .bookmark-search { position: absolute; z-index: 6; top: 264px; left: var(--edge); width: min(480px, 38%); pointer-events: auto; color: var(--theme-ink, #171713); }
 .bookmark-search-heading { display: flex; align-items: center; gap: 16px; height: 32px; font-size: 11px; letter-spacing: 1.6px; }
 .bookmark-search-heading label { margin-right: auto; }
+.bookmark-default-search { color: var(--theme-muted, #77756d); letter-spacing: .6px; }
 .bookmark-search select { min-height: 32px; border: 0; border-bottom: 1px solid var(--theme-line, #bdb8ad); background: transparent; color: inherit; font: inherit; letter-spacing: .5px; cursor: pointer; }
 .bookmark-search select:focus-visible { outline: 2px solid var(--theme-accent, #a67d48); outline-offset: 3px; }
 .bookmark-search option { background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); }

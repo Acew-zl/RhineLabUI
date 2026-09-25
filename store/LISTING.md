@@ -1,6 +1,6 @@
 # 商店发布字段
 
-状态：Edge 0.8.2 已上线；Chrome 据用户反馈正在审核。具体账号资料使用商店当前登录账号；不要猜填法定姓名、地址或公开联系邮箱。
+状态：Edge 完整版 0.8.2 已上线；Chrome 0.8.2 因搜索体验被拒，以下商店文案适用于待重新提交的 Chrome 专用版 0.8.3。具体账号资料使用商店当前登录账号；不要猜填法定姓名、地址或公开联系邮箱。
 
 ## 通用字段
 
@@ -25,7 +25,7 @@ Rhine Lab · 莱茵生命起始页是一款以玻璃档案终端为视觉主题�
 • 书签栏根部书签组成第一列，顶层文件夹各占一列；支持左右切换文件夹、上下选择书签、拖动与滚轮浏览。
 • 朝上的书脊显示网站图标和浏览器保存的书签名称，图标与文字可以分别关闭；各列保留选档记忆。
 • 打开书签默认新建标签页，让起始页继续保留；也可在设置中改为当前页打开。
-• 顶部搜索框支持本地书签匹配和主动网络搜索，可选择 Bing、Google 或百度。
+• 顶部搜索框支持本地书签匹配和主动网络搜索；网络搜索遵循 Chrome 当前的默认搜索引擎。
 • 完整开场、简短开场或直接进入三维档案三种启动方式，提供亮色/暗色主题、声音和画质设置。
 • 保留档案详情和 360° 模型查看、旋转、拆解与重组。
 
@@ -47,6 +47,8 @@ bookmarks: Read the browser bookmark tree and display the bookmarks bar as folde
 
 favicon: Read browser-cached favicons through the extension favicon endpoint so users can identify bookmarks on archive spines and search results. No third-party favicon service is used.
 
+search: Submit a query typed by the user from the new-tab search box through Chrome's Search API, using the browser's current default search provider. The extension does not modify the provider. The opening mode follows the user's new-tab/current-tab preference.
+
 Remote code: No. JavaScript, fonts, GLB models, and audio are bundled inside the extension. Web searches and opened bookmarks are ordinary user-requested navigations, not remotely executed extension code.
 
 ## 数据披露依据
@@ -55,4 +57,4 @@ Remote code: No. JavaScript, fonts, GLB models, and audio are bundled inside the
 
 ## 审核测试说明 / Notes for certification
 
-No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish, then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected query opens the chosen search engine. Settings support short/direct startup, light/dark theme, and performance quality. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.
+No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish, then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected keyword invokes chrome.search.query with Chrome's current default search provider. The extension has no provider selector and does not change Chrome's default provider. Settings support short/direct startup, light/dark theme, and performance quality. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.

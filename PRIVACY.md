@@ -2,7 +2,7 @@
 
 **Rhine Lab · 莱茵生命起始页**
 发布者 / Publisher: Acew-zl
-更新日期 / Updated: 2026-09-22
+更新日期 / Updated: 2026-09-25
 
 本扩展将浏览器新标签页替换为可搜索的三维书签起始页。无需注册扩展账号；开发者不运营用于接收书签、搜索记录或使用统计的服务器。
 
@@ -10,8 +10,8 @@
 
 - **书签**：经浏览器授予 bookmarks 权限后，扩展读取书签树（名称、网址、文件夹层级与标识符），使用书签栏内容在本机生成档案列和搜索结果，并监听修改以提示刷新。扩展不会新增、修改或删除浏览器书签，也不会将书签树发送给开发者。
 - **网站图标**：通过浏览器的 favicon 接口读取缓存图标，用于书脊和书签列表。扩展不向第三方图标服务发送网址，也不主动抓取书签网站来取得图标。
-- **本地偏好**：画质、主题、声音、启动方式、搜索引擎、打开方式、显示开关及扩展内收藏的书签标识保存在本机扩展存储空间。扩展不通过自己的服务同步这些偏好。
-- **搜索输入**：输入时在本机匹配书签，不请求远程联想，也不保存查询历史。只有主动提交网络搜索时，才会在浏览器中打开所选搜索引擎的 HTTPS 搜索页面并将查询交给该引擎；当前可选 Bing、Google、百度。
+- **本地偏好**：画质、主题、声音、启动方式、打开方式、显示开关及扩展内收藏的书签标识保存在本机扩展存储空间。非 Chrome 商店的完整版还保存用户自行选择的搜索引擎。扩展不通过自己的服务同步这些偏好。
+- **搜索输入**：输入时在本机匹配书签，不请求远程联想，也不保存查询历史。只有主动提交网络搜索时才会将查询交给搜索引擎。Chrome 商店版通过 Chrome Search API 使用浏览器当前的默认搜索引擎，不单独选择或修改默认引擎；Edge 商店版及 GitHub 完整版可由用户选择 Bing、Google、百度，提交时打开所选引擎的 HTTPS 搜索页面。
 - **主动打开链接**：点击书签或输入网址后，浏览器访问用户指定的目标网站；目标网站和搜索引擎按自己的隐私政策处理请求，浏览器也可能依其设置保存浏览记录。
 
 扩展没有广告、分析 SDK、使用行为上报或远程执行代码；不读取网页正文、密码、支付信息、邮箱或浏览历史数据库。开发者不会出售、共享或使用书签数据进行广告分析、信用判断等与起始页功能无关的用途。
@@ -38,7 +38,7 @@ Rhine Lab New Tab replaces the browser's new-tab page with an interactive, searc
 
 With the browser's bookmarks permission, the extension reads the bookmark tree (titles, URLs, folder structure, and identifiers), displays the bookmarks bar locally, and listens for changes to offer a refresh. It does not create, edit, or delete browser bookmarks or send the tree to the publisher. Website icons are read from the browser's favicon cache; no third-party icon service or direct website fetch is used to retrieve icons.
 
-Preferences and IDs saved as favorites inside the extension remain in local extension storage. Typed search text is matched locally without remote suggestions or a stored search history. Only an explicit web-search submission opens the selected provider (Bing, Google, or Baidu) over HTTPS with the submitted query. Opening a bookmark or entered address navigates to the user's chosen destination. Those services apply their own privacy policies, and the browser may record browsing history according to its settings.
+Preferences and IDs saved as favorites inside the extension remain in local extension storage. The Edge and GitHub full builds also store the user's selected search provider locally. Typed search text is matched locally without remote suggestions or a stored search history. Only an explicit web-search submission sends the query to a search provider. The Chrome Web Store build uses the Chrome Search API and the browser's current default provider; it does not select or change that provider. The Edge and GitHub full builds let users choose Bing, Google, or Baidu and navigate to the chosen provider over HTTPS. Opening a bookmark or entered address navigates to the user's chosen destination. Those services apply their own privacy policies, and the browser may record browsing history according to its settings.
 
 There are no ads, analytics SDKs, telemetry, or remotely executed code. The extension does not read web-page content, passwords, payment information, email, or the browsing-history database. Bookmark data is not sold, shared by the publisher, or used for advertising, credit decisions, or purposes unrelated to the new-tab experience.
 

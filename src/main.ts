@@ -19,7 +19,7 @@ import "./responsive.css";
 import { viewportLayout, openingLayout } from "./viewport-layout";
 import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
-import { isExtension } from './platform';
+import { isExtension, isChromeStore } from './platform';
 import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition } from './bookmark-ui';
 import { saveCoverPreference } from './bookmark-covers';
 import { openBookmarkDestination, setBookmarkOpenMode } from './bookmark-navigation';
@@ -767,7 +767,7 @@ document.addEventListener("change", (e) => {
     saveCoverPreference(el.dataset.cover, el.checked);
     scene?.refreshBookmarkCovers();
   }
-  if (el.id === 'bookmark-search-engine') setSearchEngine(el.value);
+  if (!isChromeStore && el.id === 'bookmark-search-engine') setSearchEngine(el.value);
   if (el.id === 'bookmark-open-mode') setBookmarkOpenMode(el.value);
   if (el.id === 'bookmark-summary-logo') setBookmarkSummaryLogo(el.checked);
   if (el.id === 'bookmark-startup-mode') setBookmarkStartupMode(el.value);

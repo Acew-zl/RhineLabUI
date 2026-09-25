@@ -9,7 +9,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "baseUrl": ".",
+    "paths": { "@search-provider": ["./src/bookmark-search-provider.ts"] }
   },
   "include": ["src"]
 }

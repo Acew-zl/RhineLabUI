@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 // Keep Blender's stable source/export paths, while production URLs identify
 // exact bytes and can be cached without revalidation across deployments.
@@ -13,16 +14,17 @@ const hasNovecento = ["Normal", "DemiBold", "Bold"].every(weight =>
   existsSync(`public/fonts/novecento/webFonts/NovecentoSansWide${weight}/font.woff2`),
 );
 export default defineConfig(({ mode }) => ({
-  base: mode === "wallpaper" || mode === "extension" ? "./" : "/",
-  build: { copyPublicDir: mode !== "extension" },
+  resolve: { alias: { '@search-provider': fileURLToPath(new URL(mode === 'extension-chrome' ? './src/bookmark-search-provider.chrome.ts' : './src/bookmark-search-provider.ts', import.meta.url)) } },
+  base: mode === "wallpaper" || mode === "extension" || mode === "extension-chrome" ? "./" : "/",
+  build: { copyPublicDir: mode !== "extension" && mode !== "extension-chrome" },
   define: {
     __RHINE_MODELS__: JSON.stringify(Object.fromEntries(models.map(model => [model.key,model.fileName]))),
-    __RHINE_NOVECENTO__: JSON.stringify(hasNovecento && mode !== "extension"),
+    __RHINE_NOVECENTO__: JSON.stringify(hasNovecento && mode !== "extension" && mode !== "extension-chrome"),
   },
   plugins: [{
     name: "versioned-model-assets", apply: "build",
     buildStart() { for (const model of models) this.emitFile({type:"asset",fileName:model.fileName,source:model.source}); },
-  }, ...(mode === "extension" ? [{
+  }, ...(mode === "extension" || mode === "extension-chrome" ? [{
     name: "extension-host",
     transformIndexHtml(html: string) {
       return html.replace(/\s*<link rel="(?:manifest|apple-touch-icon)"[^>]*>/g, "")
