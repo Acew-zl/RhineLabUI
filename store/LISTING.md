@@ -1,6 +1,6 @@
 # 商店发布字段
 
-状态：Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。0.8.4 本地包新增帧率设置，沿用下列两版搜索说明和权限理由，尚未上传商店。具体账号资料使用商店当前登录账号。
+状态：Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。0.8.5 本地包新增首次开场命名和帧率设置，沿用下列两版搜索说明和权限理由，尚未上传商店。具体账号资料使用商店当前登录账号。
 
 ## 通用字段
 
@@ -27,6 +27,7 @@ Rhine Lab · 莱茵生命起始页是一款以玻璃档案终端为视觉主题�
 • 打开书签默认新建标签页，让起始页继续保留；也可在设置中改为当前页打开。
 • 顶部搜索框支持本地书签匹配和主动网络搜索；网络搜索遵循 Chrome 当前的默认搜索引擎。
 • 完整开场、简短开场或直接进入三维档案三种启动方式，提供亮色/暗色主题、声音和画质设置。
+• 首次开场可输入本机显示名称，按 Enter 确认，留空使用默认名称；可在设置中修改，不读取浏览器账号。
 • 保留档案详情和 360° 模型查看、旋转、拆解与重组。
 
 隐私与权限：
@@ -53,8 +54,8 @@ Remote code: No. JavaScript, fonts, GLB models, and audio are bundled inside the
 
 ## 数据披露依据
 
-本地处理书签名称/网址/文件夹、图标、用户输入的搜索词和偏好；开发者不接收这些数据。表单如将“收集”定义为离开设备，须依其实际提示作答，不能仅凭不上传就笼统宣称完全不处理用户数据。所有披露与 PRIVACY.md 保持一致。不得自动勾选尚未核实的权利或法律承诺。
+本地处理书签名称/网址/文件夹、图标、用户自行输入的显示名称、首次确认状态、搜索词和偏好；开发者不接收这些数据。表单如将“收集”定义为离开设备，须依其实际提示作答，不能仅凭不上传就笼统宣称完全不处理用户数据。所有披露与 PRIVACY.md 保持一致。不得自动勾选尚未核实的权利或法律承诺。
 
 ## 审核测试说明 / Notes for certification
 
-No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish, then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected keyword invokes chrome.search.query with Chrome's current default search provider. The extension has no provider selector and does not change Chrome's default provider. Settings support short/direct startup, light/dark theme, and performance quality. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.
+No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish. On first use, the opening pauses at ID CONFIRMED: enter an optional display name and press Enter, or leave it empty and press Enter to use JOYCE MOORE. The name and confirmation are stored only locally, can be edited under Settings / Startup and motion, and require no browser account or new permissions. Then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected keyword invokes chrome.search.query with Chrome's current default search provider. The extension has no provider selector and does not change Chrome's default provider. Settings support short/direct startup, light/dark theme, and performance quality. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.

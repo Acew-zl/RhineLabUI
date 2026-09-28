@@ -126,8 +126,8 @@ export class BootSequence {
   private opacity(selector: string, value: number | boolean) {
     this.el(selector).style.opacity = String(Number(value));
   }
-  update(time: number) {
-    const s = bootMotion(time),
+  update(time: number, userName?: string) {
+    const s = bootMotion(time, userName),
       t = s.t;
     this.stage.dataset.bootFrame = String(s.f);
     this.accessLettering.setText(s.access);

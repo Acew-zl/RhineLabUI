@@ -9,6 +9,8 @@ import { DocumentDecryption } from "./document-decryption";
 import "./document-decryption.css";
 import "./decryption.css";
 import { escapeHtml } from "./html";
+import { DEFAULT_USER_NAME, USER_NAME_KEY, USER_NAME_BOOT_TIME, readUserName, writeUserName, normalizeUserName, type UserNameProfile } from './user-name';
+import './user-name.css';
 import { normalizeQuality, qualityPresets, type QualityPreset, type RenderQuality } from "./render-quality";
 import { qualityMarkup, syncQualityUI } from "./quality-settings";
 import { superPerformanceQuality, wallpaperQuality } from "./wallpaper-quality";
@@ -59,6 +61,11 @@ let wallpaperEffects: WallpaperEffects | undefined;
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
 import { logo, brandHeading } from "./brand";
+function loadUserName(): UserNameProfile {
+  try { return readUserName(localStorage); }
+  catch { return { name: DEFAULT_USER_NAME, confirmed: false }; }
+}
+let userNameProfile = isExtension ? loadUserName() : { name: DEFAULT_USER_NAME, confirmed: true };
 
 $("#stage").innerHTML = `
   <div id="three-scene" class="three-scene"></div>
@@ -74,7 +81,7 @@ $("#stage").innerHTML = `
   <section id="boot" class="boot" aria-label="系统启动">
     <div class="access-text">ACCESS</div>
     <div class="boot-logo">${logo}</div>
-    <div class="auth-status"><span>▪</span> <span id="auth-message"></span><i></i></div>
+    <div class="auth-status"><span>▪</span> <span id="auth-message"></span>${isExtension ? `<form id="user-name-prompt" class="user-name-prompt" hidden><input id="boot-user-name" type="text" placeholder="${DEFAULT_USER_NAME}" aria-label="显示名称" aria-describedby="user-name-help" autocomplete="off" spellcheck="false" enterkeyhint="done"/><span id="user-name-help" class="user-name-help">首次设置显示名称 · 留空使用默认名称</span><button type="submit">ENTER ↵ 确认</button></form>` : ''}<i></i></div>
     <div class="scan"><svg viewBox="0 0 1920 1080" aria-hidden="true"><g fill="none" stroke="#080a08" stroke-width="2" stroke-linecap="round"><path/><path stroke="#fff"/><path/><path/><path/><path/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="orbit-dot" r="8" fill="#ed821b" stroke="none"/><circle class="scan-core" cx="960" cy="540" r="5" fill="#080a08" stroke="none"/></g></svg><span>PERMISSION AUTHORIZED</span></div>
     <div class="welcome"><div class="welcome-panel"></div><div class="welcome-heading">WELCOME TO</div><div class="welcome-company"><strong>RHINE LAB.LLC.</strong><strong class="welcome-highlight" aria-hidden="true">RHINE LAB.LLC.</strong></div><div class="welcome-database">INTERNAL DATABASE</div><div class="welcome-logo">${logo}</div></div>
   </section>
@@ -94,7 +101,7 @@ $("#stage").innerHTML = `
     <article id="detail-content" class="detail-content"></article>
   </section>
   <div class="powered">POWERED BY <b>RHINE LAB</b><i></i></div>
-  <footer class="system-footer"><span><i class="status-light"></i> SESSION AUTHORIZED${isWallpaper ? '<button type="button" class="three-toggle" data-action="toggle-three" aria-pressed="true" title="卸载三维模型，保留 2D 界面">3D 开启</button>' : ''}</span><span>JOYCE MOORE <i>／</i> <span id="clock">00:00:00</span></span><button data-action="replay" title="重播启动流程">REINITIALIZE ↗</button></footer>
+  <footer class="system-footer"><span><i class="status-light"></i> SESSION AUTHORIZED${isWallpaper ? '<button type="button" class="three-toggle" data-action="toggle-three" aria-pressed="true" title="卸载三维模型，保留 2D 界面">3D 开启</button>' : ''}</span><span><b data-user-name>${escapeHtml(userNameProfile.name)}</b> <i>／</i> <span id="clock">00:00:00</span></span><button data-action="replay" title="重播启动流程">REINITIALIZE ↗</button></footer>
   <div id="pwa-update-notice" class="pwa-update-notice" role="status" hidden><span>新版本已就绪</span><button data-pwa-action="update">更新并重启 ↻</button></div>
   <div id="modal-root"></div><div id="toast" class="toast" role="status"></div>
   <div id="loading" class="loading"><div class="loading-mark">${logo}</div><span>CONNECTING TO INTERNAL DATABASE</span><i></i></div>
@@ -233,6 +240,69 @@ const reviewEntry = reviewParams.has("scene") || reviewParams.has("time") || rev
 let started = false;
 let bootReady = false;
 let pendingEntry: Mode | undefined;
+let namePromptActive = false;
+let namePromptDestination: Mode | undefined;
+let nameComposing = false;
+function syncUserName() {
+  document.querySelectorAll<HTMLElement>('[data-user-name]').forEach(node => {
+    node.textContent = userNameProfile.name;
+    node.title = userNameProfile.name;
+  });
+}
+function saveUserName(value: string) {
+  userNameProfile = { name: normalizeUserName(value), confirmed: true };
+  let persisted = false;
+  try { persisted = writeUserName(localStorage, userNameProfile.name); } catch { /* Session only. */ }
+  syncUserName();
+  if (!persisted) notify('名称已用于当前页面，但未能保存；下次打开可能需要重新输入。');
+}
+function beginNamePrompt(destination?: Mode) {
+  if (namePromptActive) return;
+  namePromptActive = true;
+  namePromptDestination = destination;
+  bootStart = performance.now() / 1000 - USER_NAME_BOOT_TIME;
+  $('#stage').dataset.userNamePrompt = 'true';
+  delete $('#stage').dataset.directEntry;
+  $('#user-name-prompt').hidden = false;
+  bootSequence.update(USER_NAME_BOOT_TIME, '');
+  $<HTMLInputElement>('#boot-user-name').focus({ preventScroll: true });
+}
+function finishNamePrompt() {
+  namePromptActive = false;
+  $('#user-name-prompt').hidden = true;
+  delete $('#stage').dataset.userNamePrompt;
+  bootStart = performance.now() / 1000 - USER_NAME_BOOT_TIME;
+  const destination = namePromptDestination;
+  namePromptDestination = undefined;
+  if (destination) {
+    if (activeBookmarkStartup === 'direct') $('#stage').dataset.directEntry = 'true';
+    setMode(destination);
+  } else $('#skip').focus({ preventScroll: true });
+}
+if (isExtension) {
+  const prompt = $<HTMLFormElement>('#user-name-prompt');
+  prompt.addEventListener('compositionstart', () => { nameComposing = true; });
+  prompt.addEventListener('compositionend', () => { nameComposing = false; });
+  prompt.addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!event.isComposing && !nameComposing && event.keyCode !== 229) prompt.requestSubmit();
+    }
+  });
+  prompt.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!namePromptActive || nameComposing) return;
+    saveUserName($<HTMLInputElement>('#boot-user-name').value);
+    finishNamePrompt();
+  });
+  window.addEventListener('storage', event => {
+    if (event.key !== USER_NAME_KEY) return;
+    userNameProfile = loadUserName();
+    syncUserName();
+    if (namePromptActive && userNameProfile.confirmed) finishNamePrompt();
+  });
+}
 let activeBookmarkStartup = getBookmarkStartupMode();
 const prepareDuringOpening = !isWallpaper && !reviewEntry;
 const preparation = { phase: "loading", compileMs: 0, totalMs: 0, firstVisibleFrameMs: 0 };
@@ -377,6 +447,10 @@ $("#file-ticks").innerHTML = columnFiles(fileLocation(selected).lane)
 let fileTicks = [...$("#file-ticks").querySelectorAll<HTMLButtonElement>("button")];
 
 function setMode(next: Mode) {
+  if (isExtension && !reviewEntry && started && !userNameProfile.confirmed && next !== 'boot') {
+    beginNamePrompt(next);
+    return;
+  }
   if (next !== "boot" && !ready) {
     pendingEntry = next;
     showPreparation();
@@ -617,7 +691,7 @@ function setTab(tab: string, sound = true) {
             .slice(0, 4)
             .map(
               (entry) =>
-                `<div class="log-row"><span>${entry.time}</span><span>JOYCE MOORE</span><b>READ AUTHORIZED</b></div>`,
+                `<div class="log-row"><span>${entry.time}</span><span>${escapeHtml(userNameProfile.name)}</span><b>READ AUTHORIZED</b></div>`,
             )
             .join(
               "",
@@ -739,11 +813,11 @@ function settingsMarkup() {
   const extensionBody = isExtension ? `<div class="bookmark-settings">
     ${group('01 / 浏览与搜索', `<div class="settings-list">${bookmarkSettingsMarkup('navigation')}</div>`, true)}
     ${group('02 / 书签显示', `<div class="settings-list">${bookmarkSettingsMarkup('display')}</div>`, true)}
-    ${group('03 / 启动与动效', `<div class="settings-list">${bookmarkSettingsMarkup('startup')}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}`)}
+    ${group('03 / 启动与动效', `<div class="settings-list"><label><div><strong>显示名称 / USER NAME</strong><span>用于开场与页脚；最多 24 个字符，留空恢复默认，仅保存在本机</span></div><input id="display-name" type="text" value="${escapeHtml(userNameProfile.name)}" placeholder="${DEFAULT_USER_NAME}" autocomplete="off" spellcheck="false" enterkeyhint="done"/></label>${bookmarkSettingsMarkup('startup')}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}`)}
     ${group('04 / 画面与性能', `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}</div>${qualityMarkup(prefs.rendering)}`)}
     ${group('05 / 声音', `<div class="settings-list">${audioSettingsMarkup(prefs)}</div>`)}
   </div>` : '';
-  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro">JOYCE MOORE <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}${!isWallpaper ? `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}</div>` : ""}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
+  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro"><b data-user-name>${escapeHtml(userNameProfile.name)}</b> <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}${!isWallpaper ? `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}</div>` : ""}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
 }
 
 document.addEventListener("input", (e) => {
@@ -765,6 +839,10 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
+  if (isExtension && el.id === 'display-name') {
+    saveUserName(el.value);
+    el.value = userNameProfile.name;
+  }
   if (el.id === 'render-pace') { prefs.renderPace = normalizeRenderPace(el.value); renderCadence.reset(); savePrefs(); }
   if (el.dataset.cover === 'logo' || el.dataset.cover === 'title') {
     saveCoverPreference(el.dataset.cover, el.checked);
@@ -892,6 +970,18 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (!started) return;
+  if (isExtension && (e.target as HTMLElement).id === 'display-name' && e.key === 'Enter') {
+    if (e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    const input = e.target as HTMLInputElement;
+    saveUserName(input.value);
+    input.value = userNameProfile.name;
+    return;
+  }
+  if (namePromptActive) {
+    if (e.key === 'Escape') e.preventDefault();
+    return;
+  }
   if (viewer?.isOpen) return;
   if (playground?.active && !modal) {
     if (e.key === "Escape") { e.preventDefault(); playground.stop(); }
@@ -986,8 +1076,8 @@ function bootFrame(t: number) {
     setMode("archive");
     return undefined;
   }
-  audio.updateBoot(t, frozenTime !== null);
-  const motion = bootSequence.update(t);
+  audio.updateBoot(t, frozenTime !== null || namePromptActive);
+  const motion = bootSequence.update(t, namePromptActive ? '' : userNameProfile.name);
   if (workbench?.enabled && frozenTime === null) {
     const end = openingShowsDetail(wallpaperHost()?.properties.openingdetail?.value, true) ? 35 : ARRAY_OPENING_END;
     if (t > end - .35) $(".powered").style.opacity = String(1 - ease((t - end + .35) / .35));
@@ -1061,6 +1151,11 @@ function frame(ms: number) {
   viewer?.setTheme(theme);
   playground?.tick(time);
   let bootTime = frozenTime ?? time - bootStart;
+  if (isExtension && !reviewEntry && !userNameProfile.confirmed && mode === 'boot' && bootTime >= USER_NAME_BOOT_TIME) beginNamePrompt();
+  if (namePromptActive) {
+    bootTime = USER_NAME_BOOT_TIME;
+    bootStart = time - bootTime;
+  }
   if (mode === "boot" && !ready && frozenTime === null) {
     const held = preparedBootTime(bootTime, false);
     if (held < bootTime) {
@@ -1069,9 +1164,12 @@ function frame(ms: number) {
       showPreparation();
     }
   }
-  if (isExtension && mode === "boot" && !reviewEntry && bookmarkStartupReady(activeBookmarkStartup, bootTime, ready)) setMode("archive");
+  if (isExtension && mode === "boot" && !reviewEntry && !namePromptActive && bookmarkStartupReady(activeBookmarkStartup, bootTime, ready)) {
+    setMode("archive");
+    if (namePromptActive) bootTime = USER_NAME_BOOT_TIME;
+  }
   const cinema =
-    mode === "boot" && bootReady && !(isExtension && activeBookmarkStartup === "direct") && !(pendingEntry && prefs.reduced)
+    mode === "boot" && bootReady && (namePromptActive || (!(isExtension && activeBookmarkStartup === "direct") && !(pendingEntry && prefs.reduced)))
       ? bootFrame(bootTime)
       : undefined;
   wallpaperEffects?.update(time, prefs.reduced);
@@ -1224,7 +1322,7 @@ async function start() {
       // With unicode-range faces, preload the opening's actual characters,
       // not every font shard. Other archive text loads on demand.
       document.fonts.load("300 20px MiSans", "ACCESS WELCOME TO INTERNAL DATABASE"),
-      document.fonts.load("400 20px MiSans", "身份信息确认请求已接收开始处理权限验证通过欢迎访问莱茵生命内部资料档案编号保密级别商业区选择档案：0123456789 JOYCE MOORE"),
+      document.fonts.load("400 20px MiSans", `身份信息确认请求已接收开始处理权限验证通过欢迎访问莱茵生命内部资料档案编号保密级别商业区选择档案：0123456789 JOYCE MOORE ${userNameProfile.name}`),
       document.fonts.load("600 20px MiSans", "SYNTHESIZE INFORMATION ANALYSIS OS"),
       document.fonts.load("700 20px MiSans", "RHINE LAB WELCOME TO INTERNAL DATABASE"),
     ]).then(() => { if (prepareDuringOpening) offerEntry(); });
@@ -1302,6 +1400,7 @@ function completeStartup(silent: boolean) {
   if (isWallpaper && wallpaperHost()?.properties.boot?.value === false) setMode("archive");
   $("#stage").inert = false;
   $(".mobile-entry").inert = false;
+  if (namePromptActive) $('#boot-user-name').focus({ preventScroll: true });
   loading.classList.add("loaded");
   loading.inert = true;
   setTimeout(() => {
@@ -1417,6 +1516,7 @@ Object.assign(window, {
       ready,
       preparation: { ...preparation },
       startup: started ? "started" : entry?.phase ?? "loading",
+      identity: { confirmed: userNameProfile.confirmed, waiting: namePromptActive },
       motion: { reduced: prefs.reduced, systemReduced: matchMedia("(prefers-reduced-motion: reduce)").matches },
       bootTime: mode === "boot" ? started ? (frozenTime ?? performance.now() / 1000 - bootStart) + 5 : 6.76 : null,
       selected: records[selected].id,

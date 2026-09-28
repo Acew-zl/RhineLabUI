@@ -1,6 +1,6 @@
-# 浏览器起始页 · 0.8.4 帧率与性能
+# 浏览器起始页 · 0.8.5 显示名称与性能
 
-完整版与 Chrome 专用构建均为 0.8.4：`npm run build:extension:chrome` 输出 `release/extension-chrome`。Chrome 版网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在完整版。两版均保留本地书签检索、网址直达和打开方式设置。已通过审核的商店版本仍为 Edge 0.8.2、Chrome 0.8.3，0.8.4 尚未上传商店。
+完整版与 Chrome 专用构建均为 0.8.5：`npm run build:extension:chrome` 输出 `release/extension-chrome`。Chrome 版网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在完整版。两版均保留本地书签检索、网址直达和打开方式设置。已通过审核的商店版本仍为 Edge 0.8.2、Chrome 0.8.3，0.8.5 尚未上传商店。
 
 当前 Fork：[Acew-zl/RhineLabUI](https://github.com/Acew-zl/RhineLabUI)。本地 `origin` 指向此仓库，`upstream` 保留原作者仓库。
 
@@ -8,7 +8,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 更新现有扩展
 
-本机 `release/extension` 为 0.8.4 完整版，`release/extension-chrome` 为 0.8.4 Chrome 专用版。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.4 沿用各自上一版权限。若之前安装的是 ZIP 解压到其他位置的副本，需要用新版内容替换那个目录。商店安装不会因本地代码改变而更新，需要在原商店条目上传新版本。
+本机 `release/extension` 为 0.8.5 完整版，`release/extension-chrome` 为 0.8.5 Chrome 专用版。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.5 沿用各自上一版权限。若之前安装的是 ZIP 解压到其他位置的副本，需要用新版内容替换那个目录。商店安装不会因本地代码改变而更新，需要在原商店条目上传新版本。
 
 旧警告保存在浏览器的扩展错误列表中，不会因源代码修复自动消失。清除旧日志后再新开标签页，检查是否产生新的错误。本次已将弃用的 `PCFSoftShadowMap` 改为 Three.js 实际使用的 `PCFShadowMap`，不改变已经生效的阴影类型。
 
@@ -33,7 +33,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 布局与清晰度
 
-0.8.4 在「画面与性能」最前面增加动画帧率设置，不改变已保存画质：
+0.8.4 起在「画面与性能」最前面增加动画帧率设置，不改变已保存画质：
 
 | 模式 | 操作/开场上限 | 空闲上限 |
 | --- | --- | --- |
@@ -52,6 +52,12 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 - 不同列有轻微的玻璃色差，同一列全部档案保持同色，选中、归位及循环副本沿用对应列的颜色。
 - 桌面预览相比 0.5.0 拉开约 16% 的视野（投影尺寸约缩小 14%），选中预览抬起高度为 0.6，介于早期的 0.4 和 0.6.0 的 0.8 之间，保持左侧构图；抽取仍只竖直升降。详情回到原有放大比例。顶部渐变集中为搜索栏留白。
 - 主阵列书脊使用独立的屏幕分辨率渲染层，避开三维渲染比例、景深和顶部遮罩；使用实际模型深度保持遮挡关系。背景远处的标签仍淡出，选中标签不受雾色洗白。小尺寸 favicon 的原始像素上限依然存在，不能凭空补出细节。
+
+## 显示名称
+
+首次使用（包括从旧版更新）时，开场在 `ID CONFIRMED` 的用户名位置暂停。淡色 `JOYCE MOORE` 是默认提示，输入名称后按 Enter 或点击确认继续；留空确认使用默认名称。中文输入法选字时的 Enter 不会提交。最多 24 个完整字符，保留大小写、中文和 Emoji。
+
+名称与首次确认状态保存于本机，之后新标签页和重播不再询问。简短开场、直接进入或减少动态效果的首次使用也会显示一次身份输入，确认后按所选方式进入档案，不修改启动偏好。在「设置 → 03 / 启动与动效 → 显示名称」中修改，按 Enter 或离开输入框保存；清空后确认恢复默认名称。名称用于开场、页脚、设置简介和本机读取记录，不读取浏览器账号，不新增权限。隐私说明见 [PRIVACY.md](../PRIVACY.md)，运行验证见 [USER-NAME.md](../verification/USER-NAME.md)。
 
 ## 启动方式
 
@@ -76,7 +82,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 安装验收
 
-Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.3 专用版已通过审核（用户确认）；其他桌面 Chromium 浏览器可使用 [GitHub 已发布完整版 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)。本地 0.8.4 ZIP 为 `release/RhineLab-NewTab-0.8.4.zip` 和 `release/RhineLab-Chrome-Store-0.8.4.zip`，解压后按以下步骤加载。ZIP 内 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
+Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.3 专用版已通过审核（用户确认）；其他桌面 Chromium 浏览器可使用 [GitHub 已发布完整版 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)。本地 0.8.5 ZIP 为 `release/RhineLab-NewTab-0.8.5.zip` 和 `release/RhineLab-Chrome-Store-0.8.5.zip`，解压后按以下步骤加载。ZIP 内 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
 
 1. 在项目目录执行 `npm ci`（首次安装），再执行 `npm run build:extension`。需要 Node.js 24。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。

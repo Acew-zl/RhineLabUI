@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "version": "0.8.5",
+  "browser": "154.0.4258.37",
+  "root": "D:\\Project\\RhineLabUI\\release\\extension-chrome",
+  "results": [
+    "full opening, paused time, custom Unicode, IME, settings, reopening and cross-tab sync",
+    "direct, reduced=false: blank default remembered, first-use setup respects later startup preference",
+    "brief, reduced=false: blank default remembered, first-use setup respects later startup preference",
+    "full, reduced=true: blank default remembered, first-use setup respects later startup preference",
+    "first-use skip still offers Enter confirmation before entering archives"
+  ],
+  "errors": []
+}

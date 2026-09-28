@@ -17,7 +17,7 @@
     "build:cloudflare": "npm run build && node scripts/package-cloudflare.mjs",
     "dev:extension": "npm run predev && vite --mode extension --host 127.0.0.1",
     "preview:extension": "node scripts/serve-extension.mjs",
-    "check:extension": "node scripts/check-extension.mjs && node --experimental-strip-types --test scripts/check-presentation-preparation.mjs scripts/check-bookmarks.mjs scripts/check-bookmark-readability.mjs scripts/check-render-cadence.mjs",
+    "check:extension": "node scripts/check-extension.mjs && node --experimental-strip-types --test scripts/check-presentation-preparation.mjs scripts/check-bookmarks.mjs scripts/check-bookmark-readability.mjs scripts/check-render-cadence.mjs scripts/check-user-name.mjs",
     "build:extension": "npm run prebuild && tsc && vite build --mode extension --outDir release/extension && node scripts/build-extension.mjs && node scripts/check-extension.mjs",
     "build:extension:chrome": "npm run prebuild && tsc && vite build --mode extension-chrome --outDir release/extension-chrome && node scripts/build-extension.mjs --chrome-store && node scripts/check-extension.mjs --chrome-store",
     "check:extension:chrome": "node scripts/check-extension.mjs --chrome-store && node --experimental-strip-types --test scripts/check-chrome-search.mjs",

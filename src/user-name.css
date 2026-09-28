@@ -1,0 +1,12 @@
+.user-name-prompt { position: relative; margin-left: -10px; pointer-events: auto; }
+.user-name-prompt[hidden] { display: none; }
+#boot-user-name { width: 320px; padding: 4px 0 7px; border: 0; border-bottom: 1px solid var(--theme-line, #aaa597); background: transparent; color: var(--theme-ink, #242820); font: inherit; letter-spacing: .025em; outline: none; border-radius: 0; }
+#boot-user-name::placeholder { color: var(--theme-muted, #777468); opacity: .42; }
+#boot-user-name:focus { border-bottom-color: var(--theme-ink, #242820); }
+.user-name-help { position: absolute; top: calc(100% + 14px); left: 0; font-size: 12px; letter-spacing: .7px; color: var(--theme-muted, #777468); }
+.user-name-prompt button { position: absolute; top: calc(100% + 42px); left: 0; min-height: 34px; font-size: 13px; letter-spacing: 1px; border-bottom: 1px solid var(--theme-line, #aaa597); }
+.user-name-prompt button:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+[data-user-name-prompt="true"] #skip, #viewport:has([data-user-name-prompt="true"]) .mobile-entry { visibility: hidden; }
+.settings-list #display-name { position: static; opacity: 1; width: 230px; max-width: 45%; height: 38px; padding: 6px 10px; border: 1px solid var(--theme-line, #aaa597); border-radius: 0; background: transparent; color: var(--theme-ink, #242820); font: inherit; font-size: 14px; }
+.settings-intro [data-user-name] { font-weight: 400; }
+.system-footer [data-user-name] { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; font-weight: 400; }

@@ -2,7 +2,7 @@
 
 **Rhine Lab · 莱茵生命起始页**
 发布者 / Publisher: Acew-zl
-更新日期 / Updated: 2026-09-25
+更新日期 / Updated: 2026-09-28
 
 本扩展将浏览器新标签页替换为可搜索的三维书签起始页。无需注册扩展账号；开发者不运营用于接收书签、搜索记录或使用统计的服务器。
 
@@ -11,6 +11,7 @@
 - **书签**：经浏览器授予 bookmarks 权限后，扩展读取书签树（名称、网址、文件夹层级与标识符），使用书签栏内容在本机生成档案列和搜索结果，并监听修改以提示刷新。扩展不会新增、修改或删除浏览器书签，也不会将书签树发送给开发者。
 - **网站图标**：通过浏览器的 favicon 接口读取缓存图标，用于书脊和书签列表。扩展不向第三方图标服务发送网址，也不主动抓取书签网站来取得图标。
 - **本地偏好**：画质、主题、声音、启动方式、打开方式、显示开关及扩展内收藏的书签标识保存在本机扩展存储空间。非 Chrome 商店的完整版还保存用户自行选择的搜索引擎。扩展不通过自己的服务同步这些偏好。
+- **自定义显示名称**：用户可在首次开场或设置中自行输入名称，用于开场身份文字、页脚及本机档案读取记录。名称和首次确认状态仅保存在本机，不上传或与浏览器账号关联；留空确认使用默认名称 JOYCE MOORE。不读取浏览器登录账号、邮箱或用户 ID。名称只是界面显示内容，不进行身份认证。
 - **搜索输入**：输入时在本机匹配书签，不请求远程联想，也不保存查询历史。只有主动提交网络搜索时才会将查询交给搜索引擎。Chrome 商店版通过 Chrome Search API 使用浏览器当前的默认搜索引擎，不单独选择或修改默认引擎；Edge 商店版及 GitHub 完整版可由用户选择 Bing、Google、百度，提交时打开所选引擎的 HTTPS 搜索页面。
 - **主动打开链接**：点击书签或输入网址后，浏览器访问用户指定的目标网站；目标网站和搜索引擎按自己的隐私政策处理请求，浏览器也可能依其设置保存浏览记录。
 
@@ -22,7 +23,7 @@
 
 书签和图标在打开的扩展页面中用于显示；页面关闭后其运行时缓存不再保留。本地偏好与扩展内收藏保留至用户修改、清除扩展数据或卸载扩展。实际浏览器书签仍由浏览器管理，卸载本扩展不会删除书签。浏览器自身的账号同步及备份由浏览器设置和服务条款决定。
 
-可在扩展设置中修改偏好，在浏览器书签管理器中管理书签，在扩展管理页禁用或卸载本扩展。主动提交的网络搜索和目标网站数据应向相应服务管理。
+可在扩展设置中修改偏好及显示名称；清空名称并确认可恢复默认名称。在浏览器书签管理器中管理书签，在扩展管理页禁用或卸载本扩展。清除扩展数据或卸载后，本机名称与首次确认状态一并删除。主动提交的网络搜索和目标网站数据应向相应服务管理。
 
 ## 支持与政策更新
 
@@ -39,6 +40,8 @@ Rhine Lab New Tab replaces the browser's new-tab page with an interactive, searc
 With the browser's bookmarks permission, the extension reads the bookmark tree (titles, URLs, folder structure, and identifiers), displays the bookmarks bar locally, and listens for changes to offer a refresh. It does not create, edit, or delete browser bookmarks or send the tree to the publisher. Website icons are read from the browser's favicon cache; no third-party icon service or direct website fetch is used to retrieve icons.
 
 Preferences and IDs saved as favorites inside the extension remain in local extension storage. The Edge and GitHub full builds also store the user's selected search provider locally. Typed search text is matched locally without remote suggestions or a stored search history. Only an explicit web-search submission sends the query to a search provider. The Chrome Web Store build uses the Chrome Search API and the browser's current default provider; it does not select or change that provider. The Edge and GitHub full builds let users choose Bing, Google, or Baidu and navigate to the chosen provider over HTTPS. Opening a bookmark or entered address navigates to the user's chosen destination. Those services apply their own privacy policies, and the browser may record browsing history according to its settings.
+
+Users may voluntarily enter a display name during the first opening or in settings. It appears in opening identity text, the footer, and local archive access records. The name and first-use confirmation state remain on the device, are not uploaded, and are not associated with a browser account. An empty confirmation uses JOYCE MOORE. No browser account, email address, or user ID is read, and this decorative name does not authenticate identity. Users can change or reset it in settings; clearing extension data or uninstalling removes both the name and confirmation state.
 
 There are no ads, analytics SDKs, telemetry, or remotely executed code. The extension does not read web-page content, passwords, payment information, email, or the browsing-history database. Bookmark data is not sold, shared by the publisher, or used for advertising, credit decisions, or purposes unrelated to the new-tab experience.
 

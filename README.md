@@ -2,9 +2,9 @@
 
 把浏览器书签栏变成可交互的三维档案阵列。基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 改造，保留莱茵生命终端的玻璃档案、开场动画与声音，作为桌面 Chromium 浏览器的新标签页使用。
 
-**源码及本地构建：0.8.4** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 已发布 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-28.md)
+**源码及本地构建：0.8.5** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 已发布 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-28.md)
 
-Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。本地 0.8.4 新增帧率控制，尚未更新商店包；[性能验证](verification/NEW-TAB-PERFORMANCE.md)记录了实际 GPU 对照。Chrome 版继续使用浏览器默认搜索，完整版保留搜索引擎选择。
+Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。本地 0.8.5 新增自定义显示名称，并包含帧率控制，尚未更新商店包；[性能验证](verification/NEW-TAB-PERFORMANCE.md)记录了实际 GPU 对照。Chrome 版继续使用浏览器默认搜索，完整版保留搜索引擎选择。
 
 ![三维书签阵列：顶部书脊显示书签名称，右侧显示文件夹与选中书签](store/media/01-light-1280x800.jpg)
 
@@ -16,6 +16,7 @@ Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-0
 - **顶部书脊标记**：显示网站 Logo 和浏览器保存的书签名称，可分别开关；空名称保持为空。不同文件夹用淡色区分，选中档案抬起并带有下沿细线，正面保留原有莱茵标签。
 - **保留导航页**：打开书签和搜索结果默认新建标签页，也可在设置中改为覆盖当前页。
 - **网络与书签搜索**：顶部搜索栏可输入关键词或网址，同时显示本地书签匹配；Chrome 商店版遵循浏览器默认搜索引擎，Edge／GitHub 完整版支持自行选择 Bing、Google、百度。另有完整档案索引。
+- **自定义显示名称**：首次开场在身份文字处输入并按 Enter 确认，留空使用 JOYCE MOORE；仅保存在本机，可在「启动与动效」中修改。
 - **三种启动方式**：完整动画、简短动画后就绪即进入、直接进入三维档案。前段动画期间预加载模型与渲染资源，资源未就绪时继续等待。
 - **清晰度与配色**：亮色 / 暗色、清晰画质、性能画质及精细设置；书脊采用独立屏幕分辨率渲染层。减少动态效果与超级性能模式独立控制。
 - **动画帧率**：默认均衡模式，操作最高 60 FPS、空闲 30 FPS；节能模式为 30 / 15 FPS，也可恢复跟随屏幕刷新率。降低重绘频率，保留当前画质、文字分辨率与完整模型。

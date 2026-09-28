@@ -1,0 +1,25 @@
+[
+  {
+    "Name": "RhineLab-NewTab-0.8.5.zip",
+    "Bytes": 29624030,
+    "Entries": 825,
+    "Version": "0.8.5",
+    "Permissions": [
+      "bookmarks",
+      "favicon"
+    ],
+    "SHA256": "24FE080B608B29BEA3D4DF3E55310ACDE5C5632C6E8D9C9B73EA1600FBD8500F"
+  },
+  {
+    "Name": "RhineLab-Chrome-Store-0.8.5.zip",
+    "Bytes": 29623836,
+    "Entries": 825,
+    "Version": "0.8.5",
+    "Permissions": [
+      "bookmarks",
+      "favicon",
+      "search"
+    ],
+    "SHA256": "7FA4DA8A21ACC498D17C5E4C0A972E6F488DE39E71B51F1E7FFDDBEBD2C3917E"
+  }
+]
