@@ -71,6 +71,12 @@ export class ArchiveScene {
     if (!visible) this.cancelPointer();
   }
   get presentationHidden() { return this.presenceTarget === 0 && this.presence === 0; }
+  // Long drags and their inertia must stay at the interactive cadence even
+  // after the last DOM input. Programmatic selections also use this window.
+  get hasActiveInteraction() {
+    return this.holdingArchive || this.dragging || this.archiveMomentum !== null ||
+      this.presence !== this.presenceTarget || this.clock - this.lastInteraction < 4;
+  }
   private presentationDrop(cell: ArchiveCell) {
     const delay = .15 * (1 + Math.tanh((cell.row - this.selectedCell.row) * .1 + (cell.lane - this.selectedCell.lane) * .25));
     return 35 * Math.pow(THREE.MathUtils.clamp((1 - this.presence - delay) / .7, 0, 1), 2);

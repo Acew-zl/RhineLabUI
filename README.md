@@ -2,9 +2,9 @@
 
 把浏览器书签栏变成可交互的三维档案阵列。基于 [LBEILC/RhineLabUI](https://github.com/LBEILC/RhineLabUI) 改造，保留莱茵生命终端的玻璃档案、开场动画与声音，作为桌面 Chromium 浏览器的新标签页使用。
 
-**完整版：0.8.2；Chrome 商店专用包：0.8.3（待重新审核）** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 完整版 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-21.md)
+**源码及本地构建：0.8.4** · [Edge 商店安装](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) · [GitHub 已发布 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2) · [安装与详细说明](docs/EXTENSION.md) · [上游更新评估](docs/UPSTREAM-REVIEW-2026-09-28.md)
 
-Chrome 专用包的构建、校验及重新提交说明见 [0.8.3 验证记录](verification/CHROME-STORE-0.8.3.md)和 [Chrome 上架操作清单](store/CHROME-PUBLISH.md)。
+Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。本地 0.8.4 新增帧率控制，尚未更新商店包；[性能验证](verification/NEW-TAB-PERFORMANCE.md)记录了实际 GPU 对照。Chrome 版继续使用浏览器默认搜索，完整版保留搜索引擎选择。
 
 ![三维书签阵列：顶部书脊显示书签名称，右侧显示文件夹与选中书签](store/media/01-light-1280x800.jpg)
 
@@ -18,11 +18,12 @@ Chrome 专用包的构建、校验及重新提交说明见 [0.8.3 验证记录](
 - **网络与书签搜索**：顶部搜索栏可输入关键词或网址，同时显示本地书签匹配；Chrome 商店版遵循浏览器默认搜索引擎，Edge／GitHub 完整版支持自行选择 Bing、Google、百度。另有完整档案索引。
 - **三种启动方式**：完整动画、简短动画后就绪即进入、直接进入三维档案。前段动画期间预加载模型与渲染资源，资源未就绪时继续等待。
 - **清晰度与配色**：亮色 / 暗色、清晰画质、性能画质及精细设置；书脊采用独立屏幕分辨率渲染层。减少动态效果与超级性能模式独立控制。
+- **动画帧率**：默认均衡模式，操作最高 60 FPS、空闲 30 FPS；节能模式为 30 / 15 FPS，也可恢复跟随屏幕刷新率。降低重绘频率，保留当前画质、文字分辨率与完整模型。
 - **档案详情与 360° 查看器**：双击选中档案可查看详情，并进入模型旋转、缩放、拆解和重组。
 
 ## 安装
 
-面向支持 Manifest V3 和 WebGL 2 的桌面 Chromium 浏览器。**Edge 已在商店上线**，可直接点击上方链接安装。Chrome 0.8.2 因新标签页自行选择网络搜索引擎被拒；已另备使用浏览器默认搜索的 0.8.3 商店专用包，等待重新提交与审核。
+面向支持 Manifest V3 和 WebGL 2 的桌面 Chromium 浏览器。**Edge 已在商店上线**，可直接点击上方链接安装。Chrome 专用版使用浏览器默认搜索，用户已确认通过审核；商店公开链接待补充。
 
 GitHub Release 的同一份 Chromium ZIP 可解压后加载到 Chrome、Edge、Brave、Opera、Vivaldi 等桌面浏览器。这些浏览器共用代码包，Chrome / Edge 已验证；其他浏览器尚未完成逐一实机测试，具体兼容性可能因其新标签页和图标接口实现而异。Vivaldi 还需在「设置 → 标签页 → 新标签页」开启「由扩展控制」。Firefox 需要单独适配并经 Mozilla 签名，Safari 需要通过 Apple 的扩展打包与审核流程，本版未提供可安装包。
 
@@ -76,9 +77,9 @@ npm run build:extension
 
 在浏览器书签栏中编辑、移动或删除书签后，当前导航页会提示「刷新书签」，新开的标签页直接读取最新内容。扩展本身不会修改你的书签。
 
-“清晰 · 屏幕适配”按实际屏幕密度渲染并关闭景深虚化，仍受 GPU 和像素上限约束。旧默认画质首次升级会迁移，已自定义的画质保持不变。设备负载较高时可以选择性能档或超级性能模式；这与是否保留动画分别设置。
+“清晰 · 屏幕适配”按实际屏幕密度渲染并关闭景深虚化，仍受 GPU 和像素上限约束。旧默认画质首次升级会迁移，已自定义的画质保持不变。设备负载较高时，先在「画面与性能 → 动画帧率」选择节能模式；需要进一步减少负载时，再选择性能画质或超级性能模式。帧率、画质与是否保留动画分别设置。
 
-隐私处理详情见 [隐私政策](PRIVACY.md)。商店发布进度与提交材料见 [store/README.md](store/README.md)；Edge 商店安装链接见页首，Chrome 正在审核。
+隐私处理详情见 [隐私政策](PRIVACY.md)。商店发布进度与提交材料见 [store/README.md](store/README.md)。
 
 ## 本地资源与权限
 
@@ -90,6 +91,7 @@ npm run build:extension
 | --- | --- |
 | `bookmarks` | 读取书签树，监听书签变化 |
 | `favicon` | 读取浏览器缓存的网站图标 |
+| `search`（仅 Chrome 商店版） | 遵循浏览器默认搜索引擎提交关键词 |
 
 不使用第三方图标服务，不上传书签列表，不请求远程搜索联想。只有主动提交网络搜索时，查询才会交给搜索引擎；Chrome 商店版遵循浏览器默认设置，完整版使用用户在扩展内的选择。扩展不注册网页 PWA，也不包含后台常驻进程。
 

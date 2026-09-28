@@ -1,6 +1,6 @@
-# 浏览器起始页 · 0.8.2 阅读与清晰度
+# 浏览器起始页 · 0.8.4 帧率与性能
 
-Chrome 商店另有 0.8.3 专用构建：`npm run build:extension:chrome` 输出 `release/extension-chrome`。该版本保留本地书签检索、网址直达和打开方式设置，但网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在下文所述 0.8.2 完整版。重新提交材料见 [Chrome 上架操作清单](../store/CHROME-PUBLISH.md)。
+完整版与 Chrome 专用构建均为 0.8.4：`npm run build:extension:chrome` 输出 `release/extension-chrome`。Chrome 版网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在完整版。两版均保留本地书签检索、网址直达和打开方式设置。已通过审核的商店版本仍为 Edge 0.8.2、Chrome 0.8.3，0.8.4 尚未上传商店。
 
 当前 Fork：[Acew-zl/RhineLabUI](https://github.com/Acew-zl/RhineLabUI)。本地 `origin` 指向此仓库，`upstream` 保留原作者仓库。
 
@@ -8,7 +8,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 更新现有扩展
 
-本机 `release/extension` 已构建为 0.8.2。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.2 沿用 0.2.0 权限；如果从 0.1.0 更新，可能需要允许书签和站点图标权限。若你之前安装的是 ZIP 解压到其他位置的副本，需要用新版包替换那个目录，或重新加载本项目的 `release/extension`。
+本机 `release/extension` 为 0.8.4 完整版，`release/extension-chrome` 为 0.8.4 Chrome 专用版。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.4 沿用各自上一版权限。若之前安装的是 ZIP 解压到其他位置的副本，需要用新版内容替换那个目录。商店安装不会因本地代码改变而更新，需要在原商店条目上传新版本。
 
 旧警告保存在浏览器的扩展错误列表中，不会因源代码修复自动消失。清除旧日志后再新开标签页，检查是否产生新的错误。本次已将弃用的 `PCFSoftShadowMap` 改为 Three.js 实际使用的 `PCFShadowMap`，不改变已经生效的阴影类型。
 
@@ -32,6 +32,16 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 「名称旁的网站 Logo」默认开启，控制右侧选中名称左边的图标，与两个书脊开关独立保存。图标复用浏览器本地缓存，通过独立的二维画布显示，不受三维画质、景深或雾色影响。没有缓存图标时使用通用地球占位，不把首字冒充网站 Logo。底部恢复方向键切列、前后选档和 Enter 的原始按键提示。
 
 ## 布局与清晰度
+
+0.8.4 在「画面与性能」最前面增加动画帧率设置，不改变已保存画质：
+
+| 模式 | 操作/开场上限 | 空闲上限 |
+| --- | --- | --- |
+| 均衡（默认） | 60 FPS | 30 FPS |
+| 节能 | 30 FPS | 15 FPS |
+| 跟随屏幕刷新率 | 不额外限帧 | 不额外限帧 |
+
+连续输入、惯性拖动、选档和镜头切换保持操作帧率，交互结束约 4 秒后进入空闲帧率。实际帧率仍受显示器和设备性能限制；设置保存后即时生效。后台隐藏页面继续停止三维更新。书脊独立清晰层与主场景一起限帧，两者分辨率、模型细节、材质和光影不变。原动画按真实时间运行，不以帧数计时。验证与复现见 [NEW-TAB-PERFORMANCE.md](../verification/NEW-TAB-PERFORMANCE.md)。
 
 - 0.8.0：阵列保留无限循环，书脊名称只在当前浏览位置附近的一轮书签中显示，循环交界连续淡入淡出，减少重复标签。空文件夹不显示书脊名称。未增加悬停提示。
 - 预览镜头俯角增加 6°，露出更多朝上的书脊；模型尺寸、间距及 0.6 的选中高度不变。选中书脊下沿增加暖色细线，和文字区域分开；归位和独立查看器不保留此线。
@@ -66,7 +76,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 安装验收
 
-Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.2 被拒，0.8.3 专用包待重新提交；其他桌面 Chromium 浏览器可使用 [GitHub Release 中的完整版 ZIP](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)，解压后按以下步骤加载。ZIP 内的 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
+Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.3 专用版已通过审核（用户确认）；其他桌面 Chromium 浏览器可使用 [GitHub 已发布完整版 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)。本地 0.8.4 ZIP 为 `release/RhineLab-NewTab-0.8.4.zip` 和 `release/RhineLab-Chrome-Store-0.8.4.zip`，解压后按以下步骤加载。ZIP 内 `manifest.json` 位于根目录。Firefox 与 Safari 尚无正式发行包。
 
 1. 在项目目录执行 `npm ci`（首次安装），再执行 `npm run build:extension`。需要 Node.js 24。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。

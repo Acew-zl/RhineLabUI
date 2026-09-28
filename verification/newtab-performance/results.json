@@ -1,0 +1,369 @@
+{
+  "passed": true,
+  "browser": "154.0.4258.37",
+  "viewport": {
+    "width": 2048,
+    "height": 1280,
+    "deviceScaleFactor": 1.25
+  },
+  "errors": [],
+  "results": [
+    {
+      "pace": "display",
+      "idle": {
+        "seconds": 8.019,
+        "renders": 349,
+        "reportedFps": 43,
+        "rendersPerSecond": 43.521636114228706
+      },
+      "active": {
+        "seconds": 5.481,
+        "renders": 243,
+        "reportedFps": 44,
+        "rendersPerSecond": 44.33497536945813
+      },
+      "gpu": {
+        "processId": 88536,
+        "mean": 88.25875,
+        "samples": [
+          {
+            "timestamp": "2026-09-28T14:44:03.1257160Z",
+            "process3d": 85.35,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 85.35
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:04.3580662Z",
+            "process3d": 87.77,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 87.77
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:05.3908522Z",
+            "process3d": 87.74,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 87.74
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:06.4170232Z",
+            "process3d": 86.82,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 86.82
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:07.4331081Z",
+            "process3d": 88.27,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 88.27
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:08.4463689Z",
+            "process3d": 89.5,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 89.5
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:09.4725273Z",
+            "process3d": 89.76,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 89.76
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:10.4859636Z",
+            "process3d": 90.86,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 90.86
+              }
+            ]
+          }
+        ]
+      },
+      "rendering": [
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        },
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        }
+      ],
+      "renderCadence": {
+        "pace": "display",
+        "limit": 0,
+        "active": false,
+        "hidden": false
+      }
+    },
+    {
+      "pace": "balanced",
+      "idle": {
+        "seconds": 8.011,
+        "renders": 241,
+        "reportedFps": 30,
+        "rendersPerSecond": 30.083635001872427
+      },
+      "active": {
+        "seconds": 5.417,
+        "renders": 257,
+        "reportedFps": 48,
+        "rendersPerSecond": 47.44323426250693
+      },
+      "gpu": {
+        "processId": 88536,
+        "mean": 61.7525,
+        "samples": [
+          {
+            "timestamp": "2026-09-28T14:44:32.8025470Z",
+            "process3d": 62,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 62
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:33.9442667Z",
+            "process3d": 62.03,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 62.03
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:34.9740628Z",
+            "process3d": 62.91,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 62.91
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:36.0021109Z",
+            "process3d": 62.65,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 62.65
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:37.0277965Z",
+            "process3d": 62.11,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 62.11
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:38.0410570Z",
+            "process3d": 60.78,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 60.78
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:39.0528965Z",
+            "process3d": 60.58,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 60.58
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:44:40.0660521Z",
+            "process3d": 60.96,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 60.96
+              }
+            ]
+          }
+        ]
+      },
+      "rendering": [
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        },
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        }
+      ],
+      "renderCadence": {
+        "pace": "balanced",
+        "limit": 30,
+        "active": false,
+        "hidden": false
+      }
+    },
+    {
+      "pace": "efficient",
+      "idle": {
+        "seconds": 8.015,
+        "renders": 121,
+        "reportedFps": 15,
+        "rendersPerSecond": 15.096693699313786
+      },
+      "active": {
+        "seconds": 4.462,
+        "renders": 134,
+        "reportedFps": 30,
+        "rendersPerSecond": 30.03137606454505
+      },
+      "gpu": {
+        "processId": 88536,
+        "mean": 48.572500000000005,
+        "samples": [
+          {
+            "timestamp": "2026-09-28T14:45:07.5042977Z",
+            "process3d": 49.3,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 49.3
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:08.6150272Z",
+            "process3d": 46.93,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 46.93
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:09.6573484Z",
+            "process3d": 50,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 50
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:10.6861887Z",
+            "process3d": 48.49,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 48.49
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:11.7170360Z",
+            "process3d": 48.88,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 48.88
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:12.7315206Z",
+            "process3d": 48.35,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 48.35
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:13.7599679Z",
+            "process3d": 48.6,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 48.6
+              }
+            ]
+          },
+          {
+            "timestamp": "2026-09-28T14:45:14.7859550Z",
+            "process3d": 48.03,
+            "engines": [
+              {
+                "name": "pid_88536_luid_0x00000000_0x00010b41_phys_0_eng_0_engtype_3d",
+                "percent": 48.03
+              }
+            ]
+          }
+        ]
+      },
+      "rendering": [
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        },
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        }
+      ],
+      "renderCadence": {
+        "pace": "efficient",
+        "limit": 15,
+        "active": false,
+        "hidden": false
+      }
+    }
+  ]
+}

@@ -1,15 +1,15 @@
 # 商店提交材料与状态
 
-更新：2026-09-25。**Edge 完整版 0.8.2 已上线；Chrome 0.8.2 被拒，已备 0.8.3 专用包重新提交；GitHub 完整版下载见 Release。**
+更新：2026-09-28。**Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（用户确认）。本地 0.8.4 新增帧率控制，尚未上传商店；GitHub 已发布完整版仍为 0.8.2。**
 
 ## 发布状态
 
-- Chrome：0.8.2 因新标签页的独立搜索引擎选择被拒（Red Argon）；0.8.3 专用包改用 Chrome Search API，待在原条目重新提交。Chrome 后台不能通过当前浏览器控制自动操作，后续状态以用户后台为准。
+- Chrome：0.8.2 因新标签页的独立搜索引擎选择被拒（Red Argon）；0.8.3 专用包改用 Chrome Search API，2026-09-28 用户确认已通过审核。公开链接待补充。
 - Edge：[商店条目](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp)已公开，开发者后台显示 Live，版本 0.8.2。
 
 ## 上传材料
 
-Chrome 商店应上传 `release/RhineLab-Chrome-Store-0.8.3.zip`；Edge／GitHub 完整版继续使用 `release/RhineLab-NewTab-0.8.2.zip`。两者的 manifest.json 均位于 ZIP 根目录，不要混用或上传仓库源码 ZIP。
+下一次更新：Chrome 上传 `release/RhineLab-Chrome-Store-0.8.4.zip`，Edge／GitHub 完整版使用 `release/RhineLab-NewTab-0.8.4.zip`。在各自现有条目上传，无新增权限；帧率控制的说明与实测见 [性能验证](../verification/NEW-TAB-PERFORMANCE.md)。两者的 manifest.json 均位于 ZIP 根目录。旧 0.8.2/0.8.3 ZIP 保留，不覆盖已审核版本。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -24,7 +24,7 @@ Chrome 商店应上传 `release/RhineLab-Chrome-Store-0.8.3.zip`；Edge／GitHub
 
 截图来自最终扩展构建的本机 HTTP 演示页，保留演示数据提示，未使用真实个人书签，HTTP 没有浏览器 favicon 接口，图标显示占位。截图为浏览器直接输出，没有伪造安装、评价或商店背书。小宣传图由代码绘制，源码为 `store/media/promo-small.svg`。
 
-## Chrome 手动提交记录
+## Chrome 0.8.3 手动提交记录（已通过审核）
 
 逐项填写可直接使用 [Chrome 上架操作清单](CHROME-PUBLISH.md)。
 
@@ -46,7 +46,7 @@ Chrome 商店应上传 `release/RhineLab-Chrome-Store-0.8.3.zip`；Edge／GitHub
 
 Chrome 专用版：`npm run build:extension:chrome` / `npm run check:extension:chrome`。完整版：`npm run build:extension` / `npm run check:extension`。图标与宣传图需要 Node 可访问 sharp，再执行 `node scripts/build-store-assets.mjs`；也可用 `SHARP_MODULE` 指定 sharp 的入口文件。生成后用 `node scripts/check-store-assets.mjs` 校验图像尺寸和包内文档。
 
-本轮仅新增商店元数据、128px 图标与随包隐私/来源/Three.js 许可；应用 JS/CSS 与 0.8.1 的构建内容一致，没有接入上游精细动效。
+0.8.2 商店准备仅新增元数据、128px 图标与随包隐私/来源/Three.js 许可，应用 JS/CSS 与 0.8.1 一致。0.8.3 新增 Chrome 默认搜索 API；0.8.4 新增帧率控制。这些版本没有接入上游精细动效。
 
 ## 官方资料
 

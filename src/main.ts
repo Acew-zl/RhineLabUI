@@ -20,6 +20,7 @@ import { viewportLayout, openingLayout } from "./viewport-layout";
 import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension, isChromeStore } from './platform';
+import { RenderCadence, normalizeRenderPace, renderFrameLimit, renderCadenceMarkup, type RenderPace } from './render-cadence';
 import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition } from './bookmark-ui';
 import { saveCoverPreference } from './bookmark-covers';
 import { openBookmarkDestination, setBookmarkOpenMode } from './bookmark-navigation';
@@ -156,7 +157,7 @@ function readLocal<T>(key: string, fallback: T): T {
 const savedStore = isExtension ? 'rhine-bookmark-saved' : 'rhine-saved';
 const savedKey = (record: typeof records[number]) => record.bookmarkId ?? record.id;
 const saved = new Set<string>(readLocal<string[]>(savedStore, []));
-const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; quality: boolean; rendering: RenderQuality; superPerformance: boolean; bookmarkClarityVersion: number; colorTheme: "light" | "dark" }>>("rhine-settings", {});
+const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; quality: boolean; rendering: RenderQuality; renderPace: RenderPace; superPerformance: boolean; bookmarkClarityVersion: number; colorTheme: "light" | "dark" }>>("rhine-settings", {});
 const prefs = {
   sound: true,
   music: storedPrefs.sound ?? true,
@@ -166,6 +167,7 @@ const prefs = {
   quality: true,
   superPerformance: false,
   ...storedPrefs,
+  renderPace: normalizeRenderPace(storedPrefs.renderPace),
   rendering: isExtension ? migrateBookmarkQuality(normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false), storedPrefs.bookmarkClarityVersion) : normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false),
   bookmarkClarityVersion: isExtension ? 1 : storedPrefs.bookmarkClarityVersion,
   colorTheme: storedPrefs.colorTheme === "dark" ? "dark" : "light",
@@ -738,10 +740,10 @@ function settingsMarkup() {
     ${group('01 / 浏览与搜索', `<div class="settings-list">${bookmarkSettingsMarkup('navigation')}</div>`, true)}
     ${group('02 / 书签显示', `<div class="settings-list">${bookmarkSettingsMarkup('display')}</div>`, true)}
     ${group('03 / 启动与动效', `<div class="settings-list">${bookmarkSettingsMarkup('startup')}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}`)}
-    ${group('04 / 画面与性能', `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}</div>${qualityMarkup(prefs.rendering)}`)}
+    ${group('04 / 画面与性能', `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}</div>${qualityMarkup(prefs.rendering)}`)}
     ${group('05 / 声音', `<div class="settings-list">${audioSettingsMarkup(prefs)}</div>`)}
   </div>` : '';
-  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro">JOYCE MOORE <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
+  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro">JOYCE MOORE <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}${!isWallpaper ? `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}</div>` : ""}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
 }
 
 document.addEventListener("input", (e) => {
@@ -763,6 +765,7 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("change", (e) => {
   const el = e.target as HTMLInputElement;
+  if (el.id === 'render-pace') { prefs.renderPace = normalizeRenderPace(el.value); renderCadence.reset(); savePrefs(); }
   if (el.dataset.cover === 'logo' || el.dataset.cover === 'title') {
     saveCoverPreference(el.dataset.cover, el.checked);
     scene?.refreshBookmarkCovers();
@@ -1032,9 +1035,25 @@ let lastTime = 0,
   frameCount = 0,
   frameStart = performance.now(),
   fps = 0;
+const renderCadence = new RenderCadence();
+let activeUntil = 0;
+let frameLimit = 0;
+const wakeRendering = () => {
+  const now = performance.now();
+  if (now >= activeUntil) renderCadence.reset();
+  activeUntil = now + 4000;
+};
+const renderingIsActive = (time: number) => mode === 'boot' || !ready || time < activeUntil || Boolean(scene?.hasActiveInteraction);
+if (!isWallpaper) {
+  for (const event of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'input', 'resize', 'focus'])
+    window.addEventListener(event, wakeRendering, { passive: true });
+  document.addEventListener('visibilitychange', () => { renderCadence.reset(); if (!document.hidden) wakeRendering(); });
+}
 function frame(ms: number) {
   if (!wallpaperFrame(ms)) { requestAnimationFrame(frame); return; }
   if (document.hidden) { requestAnimationFrame(frame); return; }
+  frameLimit = isWallpaper ? 0 : renderFrameLimit(prefs.renderPace, renderingIsActive(ms));
+  if (!isWallpaper && !renderCadence.shouldRun(ms, frameLimit)) { requestAnimationFrame(frame); return; }
   workbench?.tick();
   const time = ms / 1000;
   const theme = scene?.themeAmount ?? (prefs.colorTheme === "dark" ? 1 : 0);
@@ -1393,6 +1412,7 @@ Object.assign(window, {
       ...scene?.getStats(),
       threeState,
       fps: Math.round(fps),
+      renderCadence: { pace: prefs.renderPace, limit: frameLimit, active: renderingIsActive(performance.now()), hidden: document.hidden },
       mode,
       ready,
       preparation: { ...preparation },

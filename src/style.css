@@ -1286,6 +1286,20 @@ button {
   color: #938977;
   margin-top: 9px;
 }
+#render-pace {
+  font: inherit;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--theme-line, #969183);
+  padding: 8px;
+  max-width: 48%;
+  min-width: 0;
+  flex-shrink: 0;
+}
+#render-pace:focus-visible {
+  outline: 2px solid var(--theme-accent, #a67d48);
+  outline-offset: 4px;
+}
 .settings-list input {
   position: absolute;
   right: 0;

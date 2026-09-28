@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Rhine Lab · 莱茵生命起始页",
   "description": "将书签栏变成可交互的三维档案新标签页，支持本地书签搜索、网站图标和明暗主题。",
-  "version": "0.8.2",
+  "version": "0.8.4",
   "permissions": [
     "bookmarks",
     "favicon"

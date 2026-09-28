@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "browser": "154.0.4258.37",
+  "viewport": {
+    "width": 2048,
+    "height": 1280,
+    "deviceScaleFactor": 1.25
+  },
+  "errors": [],
+  "results": [
+    {
+      "pace": "balanced",
+      "idle": {
+        "seconds": 8.014,
+        "renders": 241,
+        "reportedFps": 30,
+        "rendersPerSecond": 30.072373346643378
+      },
+      "active": {
+        "seconds": 5.101,
+        "renders": 259,
+        "reportedFps": 52,
+        "rendersPerSecond": 50.77435796902568
+      },
+      "gpu": null,
+      "rendering": [
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        },
+        {
+          "width": 2560,
+          "height": 1600,
+          "renderer": "ANGLE (AMD, AMD Radeon RX 6800S (0x000073EF) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+        }
+      ],
+      "renderCadence": {
+        "pace": "balanced",
+        "limit": 30,
+        "active": false,
+        "hidden": false
+      }
+    }
+  ]
+}
