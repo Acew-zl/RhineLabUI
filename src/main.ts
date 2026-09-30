@@ -472,8 +472,6 @@ function fit() {
   stage.dataset.touch = String(coarse);
   viewport.dataset.mobileBoot = String(mode === "boot" && (coarse || viewport.clientWidth < 1100));
   stage.style.setProperty("--stage-scale", String(scale));
-  stage.style.setProperty("--opening-width", `${width}px`);
-  stage.style.setProperty("--opening-height", `${height}px`);
   stage.style.setProperty("--opening-scan-scale", String(Math.min(1, width / 1920)));
   stage.dataset.openingPortrait = String(width < height);
   // The software keyboard resizes dialogs without recomposing the 3D scene.
