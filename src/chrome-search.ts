@@ -9,10 +9,12 @@ export function submitChromeSearch(
   mode: BookmarkOpenMode,
   api: SearchApi | undefined = (globalThis as typeof globalThis & { chrome?: { search?: SearchApi } }).chrome?.search,
   open: (url: string) => void = openBookmarkDestination,
+  /** The list's alternative action searches even text that reads as an address. */
+  forceSearch = false,
 ): Promise<void> {
   const text = input.trim();
   if (!text) return Promise.resolve();
-  const direct = directNavigationTarget(text);
+  const direct = forceSearch ? undefined : directNavigationTarget(text);
   if (direct) { open(direct); return Promise.resolve(); }
   if (!api) return Promise.reject(new Error('浏览器默认搜索功能不可用'));
   try { return Promise.resolve(api.query({ text, disposition: mode === 'new-tab' ? 'NEW_TAB' : 'CURRENT_TAB' })); }

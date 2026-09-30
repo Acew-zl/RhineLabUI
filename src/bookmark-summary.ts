@@ -2,7 +2,10 @@ import { records, type ArchiveRecord } from './data';
 import { bookmarkIcon, onBookmarkIcon } from './bookmark-covers';
 
 let enabled = true;
-try { enabled = localStorage.getItem('rhine-bookmark-summary-logo') !== 'false'; } catch { /* Default. */ }
+function readSummaryLogo() {
+  try { enabled = localStorage.getItem('rhine-bookmark-summary-logo') !== 'false'; } catch { /* Default. */ }
+}
+readSummaryLogo();
 export const getBookmarkSummaryLogo = () => enabled;
 let selected: ArchiveRecord | undefined;
 let canvas: HTMLCanvasElement | undefined;
@@ -46,6 +49,7 @@ export function mountBookmarkSummaryLogo() {
   document.addEventListener('scroll', () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; refreshBookmarkResultIcons(); }); }, true);
 }
 export function updateBookmarkSummary(record: ArchiveRecord) { selected = record; paint(); }
+export function reloadBookmarkSummaryLogo() { readSummaryLogo(); paint(); }
 export function setBookmarkSummaryLogo(value: boolean) {
   enabled = value;
   try { localStorage.setItem('rhine-bookmark-summary-logo', String(value)); } catch { /* Session only. */ }
@@ -53,12 +57,17 @@ export function setBookmarkSummaryLogo(value: boolean) {
 }
 
 /** Visible search/index rows share the local icon cache; detached rows are never retained. */
-export function bookmarkResultIcon(index: number) {
-  return `<canvas class="bookmark-result-logo" width="128" height="128" data-bookmark-icon="${index}" aria-hidden="true"></canvas>`;
+/** A record index for archive rows, or the address of a search-only bookmark. */
+export function bookmarkResultIcon(source: number | string) {
+  const key = typeof source === 'number' ? String(source) : `url:${encodeURIComponent(source)}`;
+  return `<canvas class="bookmark-result-logo" width="128" height="128" data-bookmark-icon="${key}" aria-hidden="true"></canvas>`;
+}
+function iconRecord(key: string) {
+  return key.startsWith('url:') ? { bookmarkUrl: decodeURIComponent(key.slice(4)) } as ArchiveRecord : records[Number(key)];
 }
 export function refreshBookmarkResultIcons() {
   document.querySelectorAll<HTMLCanvasElement>('[data-bookmark-icon]').forEach(icon => {
-    const record = records[Number(icon.dataset.bookmarkIcon)];
+    const record = iconRecord(icon.dataset.bookmarkIcon!);
     const rect = icon.getBoundingClientRect();
     const clip = icon.closest('#search-results, #bookmark-suggestions')?.getBoundingClientRect();
     if (record?.bookmarkUrl && rect.height > 0 && rect.bottom >= Math.max(0, clip?.top ?? 0) && rect.top <= Math.min(innerHeight, clip?.bottom ?? innerHeight)) paintBookmarkIcon(icon, record);

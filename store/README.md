@@ -1,6 +1,6 @@
 # 商店提交材料与状态
 
-更新：2026-09-28。**Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（用户确认）。本地 0.8.5 新增自定义显示名称，并包含帧率控制，尚未上传商店；GitHub 已发布完整版仍为 0.8.2。**
+更新：2026-09-30。**Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（用户确认）。本地 0.8.6 在 0.8.5（自定义显示名称、帧率控制）基础上新增默认静音、每天首次完整开场、静止后停止重绘、2D 备用界面等，尚未上传商店；GitHub 已发布完整版仍为 0.8.2。**
 
 ## 发布状态
 
@@ -9,7 +9,7 @@
 
 ## 上传材料
 
-下一次更新：Chrome 上传 `release/RhineLab-Chrome-Store-0.8.5.zip`，Edge／GitHub 完整版使用 `release/RhineLab-NewTab-0.8.5.zip`。在各自现有条目上传，无新增权限；更新隐私政策与数据披露，包含用户自行输入且仅在本机保存的显示名称。帧率控制的说明与实测见 [性能验证](../verification/NEW-TAB-PERFORMANCE.md)。两者的 manifest.json 均位于 ZIP 根目录。旧 0.8.2/0.8.3 ZIP 保留，不覆盖已审核版本。
+下一次更新：Chrome 上传 0.8.6 专用包（`npm run build:extension:chrome` 生成的 `release/extension-chrome`，打包为 `RhineLab-Chrome-Store-0.8.6.zip`），Edge／GitHub 完整版使用 `release/extension` 打包的 `RhineLab-NewTab-0.8.6.zip`。在各自现有条目上传，无新增权限；更新隐私政策与数据披露，包含用户自行输入且仅在本机保存的显示名称，以及用于本机搜索的其他书签。变更见 [0.8.6 验证记录](../verification/EXTENSION-0.8.6.md)。帧率控制的说明与实测见 [性能验证](../verification/NEW-TAB-PERFORMANCE.md)。两者的 manifest.json 均位于 ZIP 根目录。旧 0.8.2/0.8.3 ZIP 保留，不覆盖已审核版本。
 
 | 文件 | 用途 |
 | --- | --- |
@@ -46,7 +46,7 @@
 
 Chrome 专用版：`npm run build:extension:chrome` / `npm run check:extension:chrome`。完整版：`npm run build:extension` / `npm run check:extension`。图标与宣传图需要 Node 可访问 sharp，再执行 `node scripts/build-store-assets.mjs`；也可用 `SHARP_MODULE` 指定 sharp 的入口文件。生成后用 `node scripts/check-store-assets.mjs` 校验图像尺寸和包内文档。
 
-0.8.2 商店准备仅新增元数据、128px 图标与随包隐私/来源/Three.js 许可，应用 JS/CSS 与 0.8.1 一致。0.8.3 新增 Chrome 默认搜索 API；0.8.4 新增帧率控制；0.8.5 新增本机显示名称。这些版本没有接入上游精细动效。
+0.8.2 商店准备仅新增元数据、128px 图标与随包隐私/来源/Three.js 许可，应用 JS/CSS 与 0.8.1 一致。0.8.3 新增 Chrome 默认搜索 API；0.8.4 新增帧率控制；0.8.5 新增本机显示名称；0.8.6 新增默认静音、每天首次完整开场、静止后停止重绘、2D 备用界面与网址判断等体验改进。这些版本没有接入上游精细动效。
 
 ## 官方资料
 

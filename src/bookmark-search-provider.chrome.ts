@@ -5,3 +5,5 @@ export const getSearchEngine = () => '';
 export function setSearchEngine(_value: string) { /* Browser setting owns the default provider. */ }
 export function bindSearchEngineSelect(_form: Element) { /* No provider selector in this build. */ }
 export function searchTarget(_input: string, _engine?: string): string | undefined { return undefined; }
+export function webSearchTarget(_input: string): string | undefined { return undefined; }
+export function reloadSearchEngine() { /* Browser setting owns the default provider. */ }

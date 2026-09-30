@@ -29,3 +29,17 @@ export function renderCadenceMarkup(pace: RenderPace) {
     ['display', '跟随屏幕刷新率'],
   ] as const).map(([value, label]) => `<option value="${value}" ${value === pace ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
 }
+
+/** Idle breathing of the archive: settle to a reusable still frame, keep it, or disable it. */
+export type IdleMotion = 'settle' | 'always' | 'off';
+export const normalizeIdleMotion = (value: unknown): IdleMotion => value === 'always' || value === 'off' ? value : 'settle';
+export const idleBreathingSeconds = (value: IdleMotion) => value === 'always' ? Infinity : value === 'off' ? 0 : 30;
+/** A still, reused frame only needs occasional checks until the next input. */
+export const SETTLED_FRAME_LIMIT = 5;
+export function idleMotionMarkup(value: IdleMotion) {
+  return `<label><div><strong>静止呼吸 / IDLE MOTION</strong><span>档案静置时的轻微起伏；静止后画面不再重绘，可降低显卡占用</span></div><select id="idle-motion" aria-label="静止呼吸">${([
+    ['settle', '30 秒后静止'],
+    ['always', '持续起伏'],
+    ['off', '关闭'],
+  ] as const).map(([option, label]) => `<option value="${option}" ${option === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
+}

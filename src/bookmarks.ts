@@ -1,4 +1,5 @@
-import { bookmarkColumns, type BookmarkNode } from './bookmark-data';
+import { bookmarkColumns, EMPTY_BAR_GUIDE, type BookmarkNode, type BookmarkExtra } from './bookmark-data';
+import { getIncludeOtherBookmarks } from './bookmark-scope';
 import { installBookmarkCatalog } from './data';
 
 interface BookmarkEvent { addListener(listener: () => void): void; }
@@ -9,6 +10,8 @@ interface BookmarkAPI {
 }
 const host = (globalThis as typeof globalThis & { chrome?: { runtime?: { id?: string; getURL(path: string): string }; bookmarks?: BookmarkAPI } }).chrome;
 export let bookmarkStatus = '';
+/** Bookmarks outside the displayed columns; the top search still finds them. */
+export let bookmarkExtras: BookmarkExtra[] = [];
 export const faviconUrl = (pageUrl?: string, size = 32) => {
   if (!pageUrl || !/^https?:/i.test(pageUrl) || !host?.runtime?.id) return undefined;
   const url = new URL(host.runtime.getURL('/_favicon/'));
@@ -35,8 +38,13 @@ export async function initializeBookmarks() {
   } catch {
     bookmarkStatus = '无法读取书签：请在扩展管理页重新加载扩展，并允许书签权限。';
   }
-  const catalog = bookmarkColumns(tree);
+  const catalog = bookmarkColumns(tree, { includeOther: getIncludeOtherBookmarks() });
+  bookmarkExtras = catalog.extras;
   installBookmarkCatalog(catalog.records, catalog.columns);
+  if (!bookmarkStatus && catalog.records.every(record => record.empty) && !catalog.columns.slice(1).length)
+    bookmarkStatus = catalog.extras.length
+      ? `书签栏还没有书签；「其他书签」等位置的 ${catalog.extras.length} 个书签可直接搜索，也可在「设置 → 书签显示」中显示为档案列。`
+      : EMPTY_BAR_GUIDE;
   if (host?.bookmarks) {
     let pending: ReturnType<typeof setTimeout>;
     const changed = () => {

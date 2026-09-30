@@ -1,6 +1,6 @@
 import { bookmarkClearQuality, migrateBookmarkQuality } from './bookmark-clarity';
-import { updateBookmarkSummary, setBookmarkSummaryLogo, bookmarkResultIcon, refreshBookmarkResultIcons } from './bookmark-summary';
-import { getBookmarkStartupMode, setBookmarkStartupMode, bookmarkStartupReady } from './bookmark-startup';
+import { updateBookmarkSummary, setBookmarkSummaryLogo, reloadBookmarkSummaryLogo, bookmarkResultIcon, refreshBookmarkResultIcons } from './bookmark-summary';
+import { setBookmarkStartupMode, reloadBookmarkStartupMode, bookmarkStartupReady, openingModeForPage, markDailyOpeningShown, type OpeningMode } from './bookmark-startup';
 import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkColumnColor } from './bookmark-colors';
 import { createRollingClock } from "./rolling-clock";
@@ -22,10 +22,12 @@ import { viewportLayout, openingLayout } from "./viewport-layout";
 import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension, isChromeStore } from './platform';
-import { RenderCadence, normalizeRenderPace, renderFrameLimit, renderCadenceMarkup, type RenderPace } from './render-cadence';
+import { RenderCadence, normalizeRenderPace, renderFrameLimit, renderCadenceMarkup, normalizeIdleMotion, idleBreathingSeconds, idleMotionMarkup, SETTLED_FRAME_LIMIT, type RenderPace, type IdleMotion } from './render-cadence';
 import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition } from './bookmark-ui';
-import { saveCoverPreference } from './bookmark-covers';
-import { openBookmarkDestination, setBookmarkOpenMode } from './bookmark-navigation';
+import { saveCoverPreference, reloadCoverPreferences } from './bookmark-covers';
+import { setIncludeOtherBookmarks, reloadBookmarkScope } from './bookmark-scope';
+import { reloadSearchEngine } from '@search-provider';
+import { openBookmarkDestination, setBookmarkOpenMode, setNavigationNotice, reloadBookmarkOpenMode } from './bookmark-navigation';
 import './bookmarks.css';
 import { createRollingNumber, createRollingText } from "@kitlangton/rolling-number";
 import { ArchiveScene } from "./scene";
@@ -75,6 +77,7 @@ $("#stage").innerHTML = `
   <nav class="system-nav" aria-label="系统导航">
     <button data-action="search"><span class="nav-glyph">⌕</span> ARCHIVE INDEX <span class="key">/</span></button>
     <button data-action="saved" aria-label="查看收藏档案" title="收藏档案">＋ SAVED <span id="saved-count">00</span></button>
+    ${isExtension ? `<button class="sound-button" data-action="toggle-sound" data-muted="true" aria-label="开启声音" title="开启声音"><span class="sound-glyph" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 9.25h3.75L12.5 5v14l-5.25-4.25H3.5z"/><path class="sound-wave" d="M15.6 9.2a4 4 0 0 1 0 5.6M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/><path class="sound-off" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg></span><span class="settings-label">静音</span></button>` : ""}
     <button class="settings-button" data-action="settings" aria-label="系统设置" title="系统设置"><span class="settings-glyph" aria-hidden="true">◷</span><span class="settings-label">设置</span></button>
   </nav>
   <button id="skip" class="skip" data-action="skip">ENTER SYSTEM <span>↗</span></button>
@@ -112,7 +115,7 @@ $("#boot-background").insertAdjacentHTML(
   '<div class="boot-white"></div>',
 );
 const bootSequence = new BootSequence($("#stage"));
-if (isExtension) mountBookmarkUI();
+if (isExtension) { mountBookmarkUI(); setNavigationNotice(message => notify(message)); }
 $("#viewport").insertAdjacentHTML("beforeend", '<button class="mobile-entry" data-action="skip">进入档案 <span>→</span></button>');
 
 type Mode = "boot" | "archive" | "detail";
@@ -163,8 +166,20 @@ function readLocal<T>(key: string, fallback: T): T {
 }
 const savedStore = isExtension ? 'rhine-bookmark-saved' : 'rhine-saved';
 const savedKey = (record: typeof records[number]) => record.bookmarkId ?? record.id;
-const saved = new Set<string>(readLocal<string[]>(savedStore, []));
-const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; quality: boolean; rendering: RenderQuality; renderPace: RenderPace; superPerformance: boolean; bookmarkClarityVersion: number; colorTheme: "light" | "dark" }>>("rhine-settings", {});
+const storedSaved = readLocal<unknown>(savedStore, []);
+// A damaged value must not stop the page from starting.
+const saved = new Set<string>(Array.isArray(storedSaved) ? storedSaved.filter((id): id is string => typeof id === "string") : []);
+type MotionPreference = "system" | "full" | "reduced";
+const systemReducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+const systemDarkScheme = matchMedia("(prefers-color-scheme: dark)");
+// Updated from the change events' own values, which are current when the event fires.
+let systemReduced = systemReducedMotion.matches, systemDark = systemDarkScheme.matches;
+/** Earlier versions stored the resolved value; one that differs from the system was an explicit choice. */
+function normalizeMotion(value: unknown, legacyReduced: unknown): MotionPreference {
+  if (value === "system" || value === "full" || value === "reduced") return value;
+  return typeof legacyReduced === "boolean" && legacyReduced !== systemReduced ? (legacyReduced ? "reduced" : "full") : "system";
+}
+const storedPrefs = readLocal<Partial<{ sound: boolean; music: boolean; soundVolume: number; musicVolume: number; reduced: boolean; motion: MotionPreference; quality: boolean; rendering: RenderQuality; renderPace: RenderPace; idleMotion: IdleMotion; superPerformance: boolean; bookmarkClarityVersion: number; audioDefaultsVersion: number; unmuteSound: boolean; unmuteMusic: boolean; colorTheme: "light" | "dark" | "system" }>>("rhine-settings", {});
 const prefs = {
   sound: true,
   music: storedPrefs.sound ?? true,
@@ -173,16 +188,45 @@ const prefs = {
   reduced: matchMedia("(prefers-reduced-motion: reduce)").matches,
   quality: true,
   superPerformance: false,
+  // What the sound button restores; both play once the user turns sound on.
+  unmuteSound: true,
+  unmuteMusic: true,
   ...storedPrefs,
   renderPace: normalizeRenderPace(storedPrefs.renderPace),
+  idleMotion: normalizeIdleMotion(storedPrefs.idleMotion),
   rendering: isExtension ? migrateBookmarkQuality(normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false), storedPrefs.bookmarkClarityVersion) : normalizeQuality(storedPrefs.rendering, storedPrefs.quality !== false),
   bookmarkClarityVersion: isExtension ? 1 : storedPrefs.bookmarkClarityVersion,
-  colorTheme: storedPrefs.colorTheme === "dark" ? "dark" : "light",
+  audioDefaultsVersion: isExtension ? 1 : storedPrefs.audioDefaultsVersion,
+  colorTheme: (storedPrefs.colorTheme === "dark" ? "dark" : storedPrefs.colorTheme === "system" && !isWallpaper ? "system" : "light") as "light" | "dark" | "system",
+  motion: normalizeMotion(storedPrefs.motion, storedPrefs.reduced),
 };
-if (isExtension && storedPrefs.bookmarkClarityVersion !== 1) {
-  try { localStorage.setItem('rhine-settings', JSON.stringify(prefs)); } catch { /* Session only. */ }
+function effectiveReduced() { return prefs.motion === "system" ? systemReduced : prefs.motion === "reduced"; }
+function themeIsDark() { return prefs.colorTheme === "dark" || (prefs.colorTheme === "system" && systemDark); }
+// Wallpaper Engine sets reduced motion itself; the other hosts may follow the system live.
+if (!isWallpaper) prefs.reduced = effectiveReduced();
+// The new tab starts silent for everyone (including earlier versions, where sound
+// was on by default); sound plays only after the user turns it on.
+if (isExtension && storedPrefs.audioDefaultsVersion !== 1) {
+  prefs.sound = false;
+  prefs.music = false;
 }
-paintTheme(prefs.colorTheme === "dark" ? 1 : 0);
+const SETTINGS_KEY = "rhine-settings";
+const snapshotPrefs = (values: object) => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, JSON.stringify(value)]));
+// What this page last read or wrote. Only keys it changed since then replace the
+// stored values, so several open new tabs never undo each other's settings.
+let persistedPrefs: Record<string, string> = snapshotPrefs(storedPrefs);
+function persistPrefs() {
+  try {
+    const stored = readLocal<unknown>(SETTINGS_KEY, {});
+    const latest = stored && typeof stored === "object" && !Array.isArray(stored) ? stored as Record<string, unknown> : {};
+    const next: Record<string, unknown> = { ...prefs, ...latest };
+    for (const [key, value] of Object.entries(prefs)) if (JSON.stringify(value) !== persistedPrefs[key]) next[key] = value;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
+    persistedPrefs = snapshotPrefs(prefs);
+  } catch { /* Session only. */ }
+}
+if (isExtension && (storedPrefs.bookmarkClarityVersion !== 1 || storedPrefs.audioDefaultsVersion !== 1)) persistPrefs();
+paintTheme(themeIsDark() ? 1 : 0);
 const rollingMotion = {
   duration: 460,
   motionBlur: true,
@@ -303,7 +347,7 @@ if (isExtension) {
     if (namePromptActive && userNameProfile.confirmed) finishNamePrompt();
   });
 }
-let activeBookmarkStartup = getBookmarkStartupMode();
+let activeBookmarkStartup: OpeningMode = isExtension ? openingModeForPage() : "full";
 const prepareDuringOpening = !isWallpaper && !reviewEntry;
 const preparation = { phase: "loading", compileMs: 0, totalMs: 0, firstVisibleFrameMs: 0 };
 const preparationStatus = document.createElement("div");
@@ -335,6 +379,7 @@ if (entry) {
 let audioPreview = false, audioPreviewRequest = 0;
 let scene: ArchiveScene | undefined;
 let threeState: "on" | "closing" | "off" | "loading" = "on";
+let threeFallback: "unavailable" | "lost" | undefined;
 let resumeCell: { lane: number; row: number } | undefined;
 let resumeSelection = -1;
 let viewer: ModelViewer | undefined;
@@ -347,15 +392,41 @@ function recordAccess() {
   });
 }
 function saveAudioPrefs() {
-  try {
-    localStorage.setItem("rhine-settings", JSON.stringify(prefs));
-  } catch {}
+  persistPrefs();
   configureAudio();
+}
+function syncSoundButton() {
+  const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-sound"]');
+  if (!button) return;
+  const audible = prefs.sound || prefs.music;
+  button.dataset.muted = String(!audible);
+  button.setAttribute("aria-label", audible ? "关闭声音" : "开启声音");
+  button.title = audible ? "关闭声音" : "开启声音";
+  button.querySelector(".settings-label")!.textContent = audible ? "声音" : "静音";
+}
+/** The nav button mutes everything, then restores the last audible combination. */
+function toggleSound() {
+  if (prefs.sound || prefs.music) {
+    prefs.unmuteSound = prefs.sound;
+    prefs.unmuteMusic = prefs.music;
+    prefs.sound = prefs.music = false;
+  } else {
+    prefs.music = prefs.unmuteMusic;
+    prefs.sound = prefs.unmuteSound || !prefs.unmuteMusic;
+  }
+  // The click is the user activation that lets the browser start audio.
+  saveAudioPrefs();
+  syncSoundButton();
+  if (prefs.sound) audio.play("confirm");
 }
 function superPerformanceEnabled() { return isWallpaper ? wallpaperHost()?.properties.superperformance?.value === true : prefs.superPerformance; }
 function effectiveRenderQuality() { return superPerformanceEnabled() ? superPerformanceQuality : prefs.rendering; }
 function savePrefs() {
   saveAudioPrefs();
+  applyPrefs();
+}
+/** Apply the current preferences without storing them (used for changes made in another page). */
+function applyPrefs() {
   if (prefs.reduced) {
     rollingTitles.forEach(title => title.finish());
     detailTransition.finish();
@@ -364,7 +435,8 @@ function savePrefs() {
     bookmarkFeedback?.cancel();
   }
   scene?.setReduced(prefs.reduced);
-  scene?.setTheme(prefs.colorTheme === "dark", prefs.reduced || !started);
+  scene?.setIdleBreathing(isWallpaper ? Infinity : idleBreathingSeconds(prefs.idleMotion));
+  scene?.setTheme(themeIsDark(), prefs.reduced || !started);
   document.querySelectorAll<HTMLElement>("[data-color-theme]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.colorTheme === prefs.colorTheme)));
   scene?.setSuperPerformance(superPerformanceEnabled());
   viewer?.setSuperPerformance(superPerformanceEnabled());
@@ -410,6 +482,7 @@ function fit() {
   stage.style.setProperty("--modal-top", `${Math.max(0, (visible?.offsetTop ?? 0) - stageTop) / scale}px`);
   stage.style.setProperty("--modal-height", `${Math.min(height, (visible?.height ?? viewport.clientHeight) / scale)}px`);
   $("#viewport").style.setProperty("--scale", String(scale));
+  reserveNavigation();
   const marks = document.querySelector("#inspection-marks");
   marks?.setAttribute("viewBox", `0 0 ${width} ${height}`);
   const layoutKey = JSON.stringify([width, height, scale, kind, devicePixelRatio]);
@@ -425,6 +498,84 @@ function fit() {
     const tab = document.querySelector<HTMLElement>(".detail-tabs button.active");
     const indicator = document.querySelector<HTMLElement>(".tab-indicator");
     if (tab && indicator) indicator.style.transform = `translateX(${tab.offsetLeft}px) scaleX(${tab.offsetWidth})`;
+  });
+}
+/** Keep the centered search clear of the navigation buttons at every aspect ratio. */
+function reserveNavigation() {
+  if (!isExtension || mode === "boot") return;
+  const stage = $("#stage"), nav = $(".system-nav");
+  const zoom = parseFloat(stage.style.zoom) || 1;
+  const stageRect = stage.getBoundingClientRect(), navRect = nav.getBoundingClientRect();
+  if (navRect.width) stage.style.setProperty("--nav-reserve", `${Math.ceil((stageRect.right - navRect.left) / zoom) + 24}px`);
+}
+if (isExtension) new ResizeObserver(() => reserveNavigation()).observe($(".system-nav"));
+/** Settings saved by another open page. Wallpaper settings are owned by the host. */
+function applyStoredPrefs(value: string | null) {
+  let next: Record<string, unknown> | null = null;
+  try { next = JSON.parse(value ?? "null"); } catch { return; }
+  if (!next || typeof next !== "object" || Array.isArray(next)) return;
+  for (const key of ["sound", "music", "quality", "superPerformance", "unmuteSound", "unmuteMusic"] as const)
+    if (typeof next[key] === "boolean") prefs[key] = next[key] as boolean;
+  for (const key of ["soundVolume", "musicVolume"] as const)
+    if (typeof next[key] === "number" && Number.isFinite(next[key])) prefs[key] = Math.max(0, Math.min(1, next[key] as number));
+  if ("renderPace" in next) prefs.renderPace = normalizeRenderPace(next.renderPace);
+  if ("idleMotion" in next) prefs.idleMotion = normalizeIdleMotion(next.idleMotion);
+  if ("motion" in next) prefs.motion = normalizeMotion(next.motion, undefined);
+  if (next.colorTheme === "light" || next.colorTheme === "dark" || next.colorTheme === "system") prefs.colorTheme = next.colorTheme;
+  if (next.rendering && typeof next.rendering === "object") prefs.rendering = normalizeQuality(next.rendering as RenderQuality, next.quality !== false);
+  prefs.reduced = effectiveReduced();
+  persistedPrefs = snapshotPrefs(prefs);
+  configureAudio();
+  applyPrefs();
+  syncSoundButton();
+  syncSettingsControls();
+}
+/** Keep an open settings panel in step with values changed elsewhere. */
+function syncSettingsControls() {
+  document.querySelectorAll<HTMLInputElement>("#modal-root input[data-pref]").forEach(input => {
+    const value = prefs[input.dataset.pref as keyof typeof prefs];
+    if (typeof value === "boolean") input.checked = value;
+  });
+  for (const key of ["soundVolume", "musicVolume"] as const) {
+    const input = document.querySelector<HTMLInputElement>(`[data-volume="${key}"]`);
+    if (input) { input.value = String(Math.round(prefs[key] * 100)); input.closest("label")?.querySelector("output")?.replaceChildren(`${input.value}%`); }
+  }
+  for (const [id, value] of [["render-pace", prefs.renderPace], ["idle-motion", prefs.idleMotion], ["motion-preference", prefs.motion]]) {
+    const select = document.getElementById(id) as HTMLSelectElement | null;
+    if (select) select.value = value;
+  }
+  const note = document.querySelector("#motion-preference-note");
+  if (note) note.outerHTML = motionSettingsMarkup();
+}
+if (!isWallpaper) window.addEventListener("storage", event => {
+  if (event.storageArea !== localStorage) return;
+  if (event.key === SETTINGS_KEY) applyStoredPrefs(event.newValue);
+  else if (event.key === savedStore) syncSavedFromStorage();
+  else if (event.key === "rhine-bookmark-covers") { reloadCoverPreferences(); scene?.refreshBookmarkCovers(); }
+  else if (event.key === "rhine-bookmark-open-mode") reloadBookmarkOpenMode();
+  // The Chrome Store build keeps no search provider of its own.
+  else if (!isChromeStore && event.key === "rhine-search-engine") reloadSearchEngine();
+  else if (event.key === "rhine-bookmark-startup") reloadBookmarkStartupMode();
+  else if (event.key === "rhine-bookmark-summary-logo") reloadBookmarkSummaryLogo();
+  else if (event.key === "rhine-bookmark-other-roots" && isExtension) {
+    reloadBookmarkScope();
+    window.dispatchEvent(new CustomEvent("rhine-bookmarks-changed", { detail: "书签显示范围已更改" }));
+  }
+});
+if (!isWallpaper) {
+  systemReducedMotion.addEventListener("change", event => {
+    systemReduced = event.matches;
+    const select = document.querySelector<HTMLSelectElement>("#motion-preference");
+    if (select) select.options[0].textContent = `跟随系统（当前${systemReduced ? "减少" : "完整"}）`;
+    if (prefs.motion !== "system") return;
+    prefs.reduced = effectiveReduced();
+    savePrefs();
+    const note = document.querySelector("#motion-preference-note");
+    if (note) note.outerHTML = motionSettingsMarkup();
+  });
+  systemDarkScheme.addEventListener("change", event => {
+    systemDark = event.matches;
+    if (prefs.colorTheme === "system") savePrefs();
   });
 }
 window.addEventListener("resize", fit);
@@ -466,6 +617,7 @@ function setMode(next: Mode) {
   }
   if (next === "detail" && mode !== "detail") recordAccess();
   mode = next;
+  if (isExtension && previousMode === "boot" && next !== "boot") markDailyOpeningShown();
   syncWallpaperBackground();
   audio.setScene(next);
   if (next !== "boot" && audioPreview) {
@@ -624,19 +776,39 @@ function inspectFile() {
     audio.play("open");
   });
 }
+function readSavedIds() {
+  const stored = readLocal<unknown>(savedStore, null);
+  return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : null;
+}
+function syncSavedButton() {
+  $("#saved-count").textContent = String(saved.size).padStart(2, "0");
+  const button = document.querySelector<HTMLButtonElement>('[data-action="bookmark"]');
+  if (!button) return;
+  const added = saved.has(savedKey(records[selected]));
+  button.firstChild!.textContent = added ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE";
+  button.querySelector("span")!.textContent = added ? "已收藏" : "收藏档案";
+  button.setAttribute("aria-pressed", String(added));
+}
+/** Favorites changed in another open page replace this page's copy. */
+function syncSavedFromStorage() {
+  const ids = readSavedIds();
+  saved.clear();
+  ids?.forEach(id => saved.add(id));
+  syncSavedButton();
+  if (modal === "saved") renderResults();
+}
 function toggleSaved() {
   const id = savedKey(records[selected]);
+  // Start from the stored list so favorites added in another page are kept.
+  const latest = readSavedIds();
+  if (latest) { saved.clear(); latest.forEach(value => saved.add(value)); }
   if (saved.has(id)) saved.delete(id);
   else saved.add(id);
   try {
     localStorage.setItem(savedStore, JSON.stringify([...saved]));
   } catch {}
-  $("#saved-count").textContent = String(saved.size).padStart(2, "0");
+  syncSavedButton();
   const button = $<HTMLButtonElement>('[data-action="bookmark"]');
-  const added = saved.has(id);
-  button.firstChild!.textContent = added ? "− REMOVE FROM SAVED" : "＋ SAVE ARCHIVE";
-  button.querySelector("span")!.textContent = added ? "已收藏" : "收藏档案";
-  button.setAttribute("aria-pressed", String(added));
   bookmarkFeedback?.cancel();
   if (!prefs.reduced) bookmarkFeedback = button.animate(
     [{ backgroundColor: "#67634c" }, { backgroundColor: "#252820" }],
@@ -735,6 +907,7 @@ function closeModal(afterClose?: () => void) {
   modalClosing = true;
   audio.play("page-close");
   modalTransition!.hide(prefs.reduced, () => {
+    resultObserver?.disconnect();
     modal = null;
     modalClosing = false;
     $("#modal-root").replaceChildren();
@@ -772,7 +945,19 @@ function renderModal() {
       if (e.target === e.currentTarget) closeModal();
     });
 }
+// Large collections render the index in batches as it scrolls, not all rows per keystroke.
+const RESULT_BATCH = 150;
+let resultObserver: IntersectionObserver | undefined;
+let resultTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleResults() {
+  clearTimeout(resultTimer);
+  if (records.length > 300) resultTimer = setTimeout(renderResults, 120);
+  else renderResults();
+}
 function renderResults() {
+  clearTimeout(resultTimer);
+  resultObserver?.disconnect();
+  const query = searchQuery.toLowerCase();
   const results = records
     .map((r, i) => ({ r, i }))
     .filter(
@@ -781,16 +966,30 @@ function renderResults() {
         (filter === "全部档案" || r.category === filter) &&
         `${r.id} ${r.title} ${r.en} ${r.department} ${r.lead} ${r.bookmarkUrl ?? ""}`
           .toLowerCase()
-          .includes(searchQuery.toLowerCase()),
+          .includes(query),
     );
-  $("#search-results").innerHTML = results.length
-    ? results
-        .map(
-          ({ r, i }) =>
-            `<button class="result-row" data-result="${i}"><span class="result-name">${isExtension && r.bookmarkUrl ? bookmarkResultIcon(i) : ""}<b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`,
-        )
-        .join("")
+  const row = ({ r, i }: { r: typeof records[number]; i: number }) =>
+    `<button class="result-row" data-result="${i}"><span class="result-name">${isExtension && r.bookmarkUrl ? bookmarkResultIcon(i) : ""}<b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`;
+  const container = $("#search-results");
+  let shown = Math.min(RESULT_BATCH, results.length);
+  container.innerHTML = results.length
+    ? results.slice(0, shown).map(row).join("")
     : `<div class="empty-results"><span>∅</span><strong>${modal === "saved" && !searchQuery ? "尚无收藏档案" : "没有匹配的档案"}</strong><p>${modal === "saved" && !searchQuery ? "读取档案时，选择 SAVE ARCHIVE 将其保存在此处。" : "尝试其他名称、档案编号，或切换科室分类。"}</p><button data-action="reset-search">${modal === "saved" ? "查看全部档案 →" : "重置检索 →"}</button></div>`;
+  if (shown < results.length) {
+    const more = document.createElement("div");
+    more.className = "result-more";
+    more.setAttribute("aria-hidden", "true");
+    container.append(more);
+    resultObserver = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      const next = Math.min(results.length, shown + RESULT_BATCH);
+      more.insertAdjacentHTML("beforebegin", results.slice(shown, next).map(row).join(""));
+      shown = next;
+      if (shown >= results.length) { resultObserver?.disconnect(); more.remove(); }
+      if (isExtension) refreshBookmarkResultIcons();
+    }, { rootMargin: "400px 0px" });
+    resultObserver.observe(more);
+  }
   if (isExtension) refreshBookmarkResultIcons();
   $("#result-count").textContent =
     `${String(results.length).padStart(2, "0")} RECORDS FOUND`;
@@ -798,26 +997,33 @@ function renderResults() {
 function updateQualitySummary() {
   const summary = document.querySelector("#quality-summary");
   if (!summary) return;
-  if (!scene) { summary.textContent = "3D 已关闭 · 三维模型与渲染资源已释放"; return; }
+  if (!scene) { summary.textContent = threeFallback ? "三维显示暂不可用 · 画质设置将在三维恢复后生效" : "3D 已关闭 · 三维模型与渲染资源已释放"; return; }
   const canvas = scene.renderer.domElement;
   const metrics = JSON.parse(canvas.parentElement?.dataset.renderQuality ?? "{}");
   summary.textContent = `${superPerformanceEnabled() ? "超级性能模式已启用 · 画质设置暂被覆盖，关闭后恢复 · " : ""}实际渲染 ${canvas.width} × ${canvas.height} · ${effectiveRenderQuality().antialias === "smaa" ? "SMAA" : "原始抗锯齿"} · 纹理 ${metrics.anisotropy ?? 1}×${metrics.limited ? " · 已达到缓冲上限" : ""}${isExtension ? ` · 屏幕目标 ${Math.round(canvas.getBoundingClientRect().width * devicePixelRatio)} × ${Math.round(canvas.getBoundingClientRect().height * devicePixelRatio)}` : ""}`;
 }
 function motionSettingsMarkup() {
-  return `<div id="motion-preference-note" class="motion-preference-note"><p>${prefs.reduced
-    ? `当前已减少动态效果。${matchMedia("(prefers-reduced-motion: reduce)").matches ? "系统也请求减少动画，可仅为本站启用完整动效。" : "关闭上方开关可恢复完整动效。"}`
-    : "当前使用完整动效。"}</p>${prefs.reduced ? '<button data-action="enable-motion">启用完整动效并重播 ↻</button>' : ""}</div>`;
+  const note = !prefs.reduced ? "当前使用完整动效。"
+    : isWallpaper ? `当前已减少动态效果。${systemReduced ? "系统也请求减少动画，可仅为本站启用完整动效。" : "关闭上方开关可恢复完整动效。"}`
+    : prefs.motion === "system" ? "当前跟随系统减少动态效果，可仅为本站启用完整动效。" : "当前已减少动态效果。";
+  return `<div id="motion-preference-note" class="motion-preference-note"><p>${note}</p>${prefs.reduced ? '<button data-action="enable-motion">启用完整动效并重播 ↻</button>' : ""}</div>`;
+}
+/** Wallpaper Engine keeps its property toggle; other hosts follow the system unless the user chooses. */
+function motionPreferenceMarkup() {
+  if (isWallpaper) return `<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label>`;
+  const options: [MotionPreference, string][] = [["system", `跟随系统（当前${systemReduced ? "减少" : "完整"}）`], ["full", "始终完整"], ["reduced", "始终减少"]];
+  return `<label><div><strong>动态效果 / MOTION</strong><span>减少动态效果会跳过开机动画，简化选档、镜头和文字动效</span></div><select id="motion-preference" aria-label="动态效果">${options.map(([value, label]) => `<option value="${value}" ${prefs.motion === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
 }
 function settingsMarkup() {
   const group = (title: string, content: string, open = false) => `<details class="bookmark-settings-group" ${open ? 'open' : ''}><summary>${title}</summary><div class="bookmark-settings-content">${content}</div></details>`;
   const extensionBody = isExtension ? `<div class="bookmark-settings">
     ${group('01 / 浏览与搜索', `<div class="settings-list">${bookmarkSettingsMarkup('navigation')}</div>`, true)}
     ${group('02 / 书签显示', `<div class="settings-list">${bookmarkSettingsMarkup('display')}</div>`, true)}
-    ${group('03 / 启动与动效', `<div class="settings-list"><label><div><strong>显示名称 / USER NAME</strong><span>用于开场与页脚；最多 24 个字符，留空恢复默认，仅保存在本机</span></div><input id="display-name" type="text" value="${escapeHtml(userNameProfile.name)}" placeholder="${DEFAULT_USER_NAME}" autocomplete="off" spellcheck="false" enterkeyhint="done"/></label>${bookmarkSettingsMarkup('startup')}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}`)}
-    ${group('04 / 画面与性能', `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}</div>${qualityMarkup(prefs.rendering)}`)}
+    ${group('03 / 启动与动效', `<div class="settings-list"><label><div><strong>显示名称 / USER NAME</strong><span>用于开场与页脚；最多 24 个字符，留空恢复默认，仅保存在本机</span></div><input id="display-name" type="text" value="${escapeHtml(userNameProfile.name)}" placeholder="${DEFAULT_USER_NAME}" autocomplete="off" spellcheck="false" enterkeyhint="done"/></label>${bookmarkSettingsMarkup('startup')}${motionPreferenceMarkup()}</div>${motionSettingsMarkup()}`)}
+    ${group('04 / 画面与性能', `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}${idleMotionMarkup(prefs.idleMotion)}${themeSettingsMarkup(prefs.colorTheme, !isWallpaper)}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}</div>${qualityMarkup(prefs.rendering)}`)}
     ${group('05 / 声音', `<div class="settings-list">${audioSettingsMarkup(prefs)}</div>`)}
   </div>` : '';
-  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro"><b data-user-name>${escapeHtml(userNameProfile.name)}</b> <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme === "dark")}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}<label><div><strong>REDUCED MOTION</strong><span>跳过开机动画，简化选档、镜头和文字动效</span></div><input type="checkbox" data-pref="reduced" ${prefs.reduced ? "checked" : ""}/><i class="toggle"></i></label></div>${motionSettingsMarkup()}${!isWallpaper ? `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}</div>` : ""}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
+  return `<h2>SYSTEM SETTINGS<small>终端偏好设置</small></h2><p class="settings-intro"><b data-user-name>${escapeHtml(userNameProfile.name)}</b> <span>·</span> SESSION AUTHORIZED</p>${isWallpaper ? '<p class="wallpaper-settings-note">每次启动都会读取 Wallpaper Engine 中的设置。在此修改仅对当前运行生效，无法持久保存；如需保留，请在 Wallpaper Engine 的壁纸属性中调整。</p>' : ""}${isExtension ? extensionBody : `<div class="settings-list">${themeSettingsMarkup(prefs.colorTheme, !isWallpaper)}${!isWallpaper ? `<label><div><strong>SUPER PERFORMANCE</strong><span>降低三维画质和渲染分辨率，保留完整动效；关闭后恢复原画质</span></div><input type="checkbox" data-pref="superPerformance" ${prefs.superPerformance ? "checked" : ""}/><i class="toggle"></i></label>` : ""}${workbench?.settingsMarkup() ?? ""}${audioSettingsMarkup(prefs)}${motionPreferenceMarkup()}</div>${motionSettingsMarkup()}${!isWallpaper ? `<div class="settings-list">${renderCadenceMarkup(prefs.renderPace)}${idleMotionMarkup(prefs.idleMotion)}</div>` : ""}${qualityMarkup(prefs.rendering)}${pwaSettingsMarkup()}`}<div class="settings-shortcuts">${isWallpaper ? '<span>DESKTOP CONTROLS</span><p>拖动阵列或点击界面按钮浏览档案。桌面模式下，方向键与滚轮可能无法传入壁纸。</p>' : '<span>KEYBOARD CONTROLS</span><p><kbd>←</kbd><kbd>→</kbd> 切列 <kbd>↑</kbd><kbd>↓</kbd> 选档 <kbd>ENTER</kbd> 读取 <kbd>/</kbd> 检索 <kbd>ESC</kbd> 返回</p>'}</div><div class="settings-bottom">${!isWallpaper && document.fullscreenEnabled ? '<button data-action="fullscreen">FULLSCREEN <span>↗</span></button>' : ''}<button data-action="restart">REINITIALIZE SYSTEM <span>↻</span></button></div><div class="modal-bottom"><span>ANALYSIS OS / 1.0 · 使用 MiSans 字体（小米） <a href="${assetUrl("fonts/MiSans-license.pdf")}" target="_blank" rel="noopener">字体许可</a></span><span>POWERED BY RHINE LAB</span></div>`;
 }
 
 document.addEventListener("input", (e) => {
@@ -834,7 +1040,7 @@ document.addEventListener("input", (e) => {
   }
   if ((e.target as HTMLElement).id === "archive-search") {
     searchQuery = (e.target as HTMLInputElement).value;
-    renderResults();
+    scheduleResults();
   }
 });
 document.addEventListener("change", (e) => {
@@ -844,6 +1050,14 @@ document.addEventListener("change", (e) => {
     el.value = userNameProfile.name;
   }
   if (el.id === 'render-pace') { prefs.renderPace = normalizeRenderPace(el.value); renderCadence.reset(); savePrefs(); }
+  if (el.id === 'idle-motion') { prefs.idleMotion = normalizeIdleMotion(el.value); savePrefs(); }
+  if (el.id === 'motion-preference') {
+    prefs.motion = normalizeMotion(el.value, undefined);
+    prefs.reduced = effectiveReduced();
+    savePrefs();
+    $("#motion-preference-note").outerHTML = motionSettingsMarkup();
+    audio.play("confirm");
+  }
   if (el.dataset.cover === 'logo' || el.dataset.cover === 'title') {
     saveCoverPreference(el.dataset.cover, el.checked);
     scene?.refreshBookmarkCovers();
@@ -852,6 +1066,10 @@ document.addEventListener("change", (e) => {
   if (el.id === 'bookmark-open-mode') setBookmarkOpenMode(el.value);
   if (el.id === 'bookmark-summary-logo') setBookmarkSummaryLogo(el.checked);
   if (el.id === 'bookmark-startup-mode') setBookmarkStartupMode(el.value);
+  if (el.id === 'bookmark-other-roots') {
+    setIncludeOtherBookmarks(el.checked);
+    window.dispatchEvent(new CustomEvent('rhine-bookmarks-changed', { detail: '书签显示范围已更改' }));
+  }
   if (isExtension && el.id === 'quality-preset' && el.value === 'clear') { prefs.rendering = { ...bookmarkClearQuality }; savePrefs(); }
   if (el.id === "quality-preset" && Object.hasOwn(qualityPresets, el.value)) {
     prefs.rendering = { ...qualityPresets[el.value as QualityPreset] };
@@ -864,14 +1082,19 @@ document.addEventListener("change", (e) => {
   if (el.dataset.pref) {
     const key = el.dataset.pref;
     if (key === "sound" || key === "music" || key === "reduced" || key === "quality" || key === "superPerformance") prefs[key] = el.checked;
-    if (key === "sound" || key === "music") saveAudioPrefs(); else savePrefs();
+    if (key === "sound" || key === "music") { saveAudioPrefs(); syncSoundButton(); } else savePrefs();
     if (key === "reduced") $("#motion-preference-note").outerHTML = motionSettingsMarkup();
     audio.play("confirm");
   }
 });
 document.addEventListener("click", (e) => {
   const themeButton = (e.target as Element).closest<HTMLElement>("[data-color-theme]");
-  if (themeButton) { prefs.colorTheme = themeButton.dataset.colorTheme === "dark" ? "dark" : "light"; savePrefs(); return; }
+  if (themeButton) {
+    const choice = themeButton.dataset.colorTheme;
+    prefs.colorTheme = choice === "dark" ? "dark" : choice === "system" && !isWallpaper ? "system" : "light";
+    savePrefs();
+    return;
+  }
   if (!started) return;
   if (modalClosing) return;
   const el = (e.target as Element).closest<HTMLElement>("button");
@@ -907,6 +1130,7 @@ document.addEventListener("click", (e) => {
   }
   const action = el.dataset.action;
   if (action === "toggle-three") { void toggleThree(); return; }
+  if (action === "toggle-sound") { toggleSound(); return; }
   if (action === "sound-preview") audio.play("confirm");
   if (action === "skip") {
     setMode("archive");
@@ -956,6 +1180,7 @@ document.addEventListener("click", (e) => {
     replayBoot();
   }
   if (action === "enable-motion") {
+    prefs.motion = "full";
     prefs.reduced = false;
     savePrefs();
     replayBoot();
@@ -1067,7 +1292,7 @@ const ease = (t: number) => {
   return t * t * (3 - 2 * t);
 };
 function bootFrame(t: number) {
-  if (isWallpaper && !scene && frozenTime === null && t >= 21.9) {
+  if (!scene && frozenTime === null && t >= 21.9) {
     setMode("archive");
     return undefined;
   }
@@ -1129,6 +1354,7 @@ const renderCadence = new RenderCadence();
 let activeUntil = 0;
 let frameLimit = 0;
 const wakeRendering = () => {
+  scene?.noteActivity();
   const now = performance.now();
   if (now >= activeUntil) renderCadence.reset();
   activeUntil = now + 4000;
@@ -1139,14 +1365,28 @@ if (!isWallpaper) {
     window.addEventListener(event, wakeRendering, { passive: true });
   document.addEventListener('visibilitychange', () => { renderCadence.reset(); if (!document.hidden) wakeRendering(); });
 }
+let frameErrorReported = false;
+let renderSettled = false;
 function frame(ms: number) {
-  if (!wallpaperFrame(ms)) { requestAnimationFrame(frame); return; }
-  if (document.hidden) { requestAnimationFrame(frame); return; }
-  frameLimit = isWallpaper ? 0 : renderFrameLimit(prefs.renderPace, renderingIsActive(ms));
-  if (!isWallpaper && !renderCadence.shouldRun(ms, frameLimit)) { requestAnimationFrame(frame); return; }
+  requestAnimationFrame(frame);
+  // One failing frame must not stop every later frame and input response.
+  try { renderFrame(ms); }
+  catch (error) {
+    if (!frameErrorReported) { frameErrorReported = true; console.error(error); }
+  }
+}
+function renderFrame(ms: number) {
+  if (!wallpaperFrame(ms)) return;
+  if (document.hidden) return;
+  const renderingActive = renderingIsActive(ms);
+  frameLimit = isWallpaper ? 0 : renderFrameLimit(prefs.renderPace, renderingActive);
+  // Once the archive has been still for a while, its canvas is reused; check less often.
+  renderSettled = !isWallpaper && !renderingActive && mode === "archive" && !modal && Boolean(scene) && ms - scene!.lastRenderAt > 2000;
+  if (renderSettled) frameLimit = SETTLED_FRAME_LIMIT;
+  if (!isWallpaper && !renderCadence.shouldRun(ms, frameLimit)) return;
   workbench?.tick();
   const time = ms / 1000;
-  const theme = scene?.themeAmount ?? (prefs.colorTheme === "dark" ? 1 : 0);
+  const theme = scene?.themeAmount ?? (themeIsDark() ? 1 : 0);
   paintTheme(theme);
   viewer?.setTheme(theme);
   playground?.tick(time);
@@ -1193,7 +1433,7 @@ function frame(ms: number) {
       pendingDetailFocus = false;
     }
   }
-  $("#stage").style.setProperty("--detail-shade", String(mode === "boot" ? 0 : scene?.detailVisibility ?? 0));
+  $("#stage").style.setProperty("--detail-shade", String(mode === "boot" ? 0 : scene ? scene.detailVisibility : Number(mode === "detail")));
   const currentScene = scene;
   if (currentScene) inspectionOverlay.render(currentScene.decryptionFrame,
     (x, y) => currentScene.projectCard(x, y), Boolean(cinema));
@@ -1210,7 +1450,6 @@ function frame(ms: number) {
     $("#three-scene").dataset.renderStats = JSON.stringify(scene?.getStats() ?? { loaded: false, drawCalls: 0, triangles: 0 });
     $("#three-scene").dataset.preparation = JSON.stringify({ ...preparation, ready, mode, bootTime: mode === "boot" ? bootTime : null });
   }
-  requestAnimationFrame(frame);
 }
 function bindScene(scene: ArchiveScene, cell?: { lane: number; row: number }) {
     scene.onInspect = () => { if (mode === "archive" && !modal && !viewer?.isOpen) inspectFile(); };
@@ -1270,6 +1509,74 @@ function releaseThree() {
   delete $("#three-scene").dataset.renderQuality;
   updateQualitySummary();
 }
+/** Without WebGL, the extension and website stay usable through the 2D interface. */
+function useTwoDimensional(reason: "unavailable" | "lost", error?: unknown) {
+  if (error !== undefined) console.warn(error);
+  threeFallback = reason;
+  const failedScene = scene;
+  scene = undefined;
+  try { viewer?.dispose(); } catch { /* Released with the page. */ }
+  viewer = undefined;
+  // A partially created scene or a lost context may fail while releasing.
+  try { failedScene?.dispose(); } catch { failedScene?.renderer.domElement.remove(); }
+  document.querySelectorAll(".bookmark-readable-layer").forEach(node => node.remove());
+  threeState = "off"; syncThreeButton();
+  $("#hover-label").hidden = true;
+  delete $("#three-scene").dataset.renderQuality;
+  if (mode === "detail") {
+    $("#detail-content").style.opacity = "1";
+    $("#detail-content").style.translate = "0 0";
+    $("#detail-content").inert = false;
+    documentDecryption.reset($("#detail-content"), true);
+  }
+  updateQualitySummary();
+  // A dismissed "unavailable" notice stays hidden for a week; settings still report it.
+  const dismissKey = "rhine-three-notice-dismissed";
+  let dismissed = 0;
+  try { dismissed = Number(localStorage.getItem(dismissKey)) || 0; } catch { /* Show it. */ }
+  if (reason === "unavailable" && Date.now() - dismissed < 7 * 864e5) return;
+  let notice = document.querySelector<HTMLElement>(".three-notice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "three-notice";
+    notice.setAttribute("role", "status");
+    $("#viewport").append(notice);
+  }
+  const usable = isExtension ? "书签与搜索仍可正常使用" : "档案内容仍可正常浏览";
+  notice.innerHTML = reason === "lost"
+    ? `三维显示已中断，${usable}。<button type="button" data-three-retry>重新载入 3D ↻</button><button type="button" class="three-notice-close" aria-label="关闭提示">×</button>`
+    : `三维显示暂不可用，${usable}。可开启浏览器的图形加速后重试。<button type="button" data-three-retry>重试 3D ↻</button><button type="button" class="three-notice-close" aria-label="关闭提示">×</button>`;
+  notice.querySelector("[data-three-retry]")!.addEventListener("click", () => location.reload());
+  notice.querySelector(".three-notice-close")!.addEventListener("click", () => {
+    notice!.hidden = true;
+    if (reason === "unavailable") try { localStorage.setItem(dismissKey, String(Date.now())); } catch { /* This page only. */ }
+  });
+  notice.hidden = false;
+}
+/** A context the browser never restores (for example, too many open pages) falls back to 2D. */
+function watchContextLoss(target: ArchiveScene) {
+  if (isWallpaper) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const canvas = target.renderer.domElement;
+  canvas.addEventListener("webglcontextlost", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (scene === target) useTwoDimensional("lost"); }, 5000);
+  });
+  canvas.addEventListener("webglcontextrestored", () => clearTimeout(timer));
+}
+let fallbackWheel = 0, fallbackWheelTime = 0;
+// The 3D canvas normally owns wheel browsing; keep it in the 2D interface.
+$("#stage").addEventListener("wheel", event => {
+  if (isWallpaper || scene || !started || !ready || mode !== "archive" || modal || event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+  if ((event.target as Element).closest(".bookmark-search, .archive-callout, .terminal-modal, #detail-ui")) return;
+  const now = performance.now();
+  if (now - fallbackWheelTime > 180 || Math.sign(event.deltaY) !== Math.sign(fallbackWheel)) fallbackWheel = 0;
+  fallbackWheelTime = now;
+  fallbackWheel += event.deltaY * (event.deltaMode === 1 ? 40 : 1);
+  if (Math.abs(fallbackWheel) < 100) return;
+  stepFile(Math.sign(fallbackWheel));
+  fallbackWheel = 0;
+}, { passive: true });
 async function toggleThree() {
   if (!isWallpaper || !ready || threeState === "loading") return;
   if (threeState === "closing") {
@@ -1294,7 +1601,7 @@ async function toggleThree() {
     bindScene(next, resumeSelection === selected ? resumeCell : undefined);
     next.revealImmediately();
     scene = next;
-    scene.setTheme(prefs.colorTheme === "dark", true);
+    scene.setTheme(themeIsDark(), true);
     scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");
     savePrefs();
     scene.setPresentationVisible(true, prefs.reduced);
@@ -1325,19 +1632,25 @@ async function start() {
       document.fonts.load("400 20px MiSans", `身份信息确认请求已接收开始处理权限验证通过欢迎访问莱茵生命内部资料档案编号保密级别商业区选择档案：0123456789 JOYCE MOORE ${userNameProfile.name}`),
       document.fonts.load("600 20px MiSans", "SYNTHESIZE INFORMATION ANALYSIS OS"),
       document.fonts.load("700 20px MiSans", "RHINE LAB WELCOME TO INTERNAL DATABASE"),
-    ]).then(() => { if (prepareDuringOpening) offerEntry(); });
+    ]).catch(error => { console.warn(error); }).then(() => { if (prepareDuringOpening) offerEntry(); });
     const three = (async () => {
       await yieldPreparation();
       if (!isWallpaper || wallpaperHost()?.properties.load3donstartup?.value !== false) {
-        scene = new ArchiveScene($("#three-scene"));
-        scene.setTheme(prefs.colorTheme === "dark", true);
-        scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");
-        await scene.load();
-        // Canvas labels must use the loaded font, even when the GLB arrives first.
-        await fonts;
-        if (isExtension) scene.refreshBookmarkCovers();
-        if (failed) return;
-        bindScene(scene);
+        try {
+          scene = new ArchiveScene($("#three-scene"));
+          scene.setTheme(themeIsDark(), true);
+          scene.setArchiveCoverage(wallpaperHost()?.properties.archivecoverage?.value === "extra");
+          await scene.load();
+          // Canvas labels must use the loaded font, even when the GLB arrives first.
+          await fonts;
+          if (isExtension) scene.refreshBookmarkCovers();
+          if (failed) return;
+          bindScene(scene);
+          watchContextLoss(scene);
+        } catch (error) {
+          if (isWallpaper) throw error;
+          useTwoDimensional("unavailable", error);
+        }
       } else {
         threeState = "off";
         syncThreeButton();
@@ -1346,11 +1659,15 @@ async function start() {
       select(0);
       if (scene && (prepareDuringOpening || reviewParams.get("prewarm") === "1")) {
         preparation.phase = "warming";
-        Object.assign(preparation, await scene.preparePresentation());
+        try { Object.assign(preparation, await scene.preparePresentation()); }
+        catch (error) {
+          if (isWallpaper) throw error;
+          useTwoDimensional("unavailable", error);
+        }
       }
       if (failed) return;
       ready = true;
-      preparation.phase = "ready";
+      preparation.phase = threeFallback ? "2d" : "ready";
       preparationStatus.hidden = true;
       if (pendingEntry && started) {
         const target = pendingEntry;
@@ -1418,6 +1735,7 @@ function completeStartup(silent: boolean) {
   setTimeout(() => void initPwa(notify), 1500);
 }
 updateSelection();
+syncSoundButton();
 const customBackground = isWallpaper ? new WallpaperBackground($("#stage"), notify) : undefined;
 function syncWallpaperBackground(retry = false) {
   customBackground?.update(wallpaperHost()?.properties ?? {}, mode !== "boot" && (threeState === "off" || threeState === "loading"), prefs.reduced, retry);
@@ -1511,13 +1829,15 @@ Object.assign(window, {
       ...scene?.getStats(),
       threeState,
       fps: Math.round(fps),
-      renderCadence: { pace: prefs.renderPace, limit: frameLimit, active: renderingIsActive(performance.now()), hidden: document.hidden },
+      renderCadence: { pace: prefs.renderPace, idleMotion: prefs.idleMotion, limit: frameLimit, settled: renderSettled, active: renderingIsActive(performance.now()), hidden: document.hidden },
       mode,
       ready,
       preparation: { ...preparation },
       startup: started ? "started" : entry?.phase ?? "loading",
+      startupMode: activeBookmarkStartup,
       identity: { confirmed: userNameProfile.confirmed, waiting: namePromptActive },
-      motion: { reduced: prefs.reduced, systemReduced: matchMedia("(prefers-reduced-motion: reduce)").matches },
+      motion: { reduced: prefs.reduced, preference: prefs.motion, systemReduced },
+      theme: { choice: prefs.colorTheme, dark: themeIsDark() },
       bootTime: mode === "boot" ? started ? (frozenTime ?? performance.now() / 1000 - bootStart) + 5 : 6.76 : null,
       selected: records[selected].id,
       saved: [...saved],

@@ -211,6 +211,15 @@ export class ArchiveScene {
   private pulseGain = 1;
   private idleGain = 0;
   private lastInteraction = 0;
+  private lastActivity = 0;
+  private idleBreathingLimit = Infinity;
+  private lastRenderTime = 0;
+  /** Seconds the idle breathing lasts before settling; Infinity keeps it, 0 disables it. */
+  setIdleBreathing(seconds: number) { this.idleBreathingLimit = seconds; }
+  /** Any page input restarts a settled idle breathing without stopping it. */
+  noteActivity() { this.lastActivity = this.clock; }
+  /** performance.now() of the last frame actually drawn; later frames reused the canvas. */
+  get lastRenderAt() { return this.lastRenderTime; }
   private scanTime = 29.1;
   private scanBlend = 0;
   private cameraAim = new THREE.Vector3();
@@ -296,7 +305,8 @@ export class ArchiveScene {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: false,
-      powerPreference: "high-performance",
+      // A new tab or web page need not wake a discrete GPU; the wallpaper host keeps it.
+      powerPreference: import.meta.env.MODE === "wallpaper" ? "high-performance" : "default",
     });
     this.renderer.setPixelRatio(
       Math.min(devicePixelRatio, 1.5) *
@@ -555,7 +565,12 @@ export class ArchiveScene {
     if (bookmarkCatalog) {
       this.bookmarkCovers = new BookmarkCovers(this.renderer.capabilities.maxTextureSize, () => this.renderState.invalidate());
       await this.bookmarkCovers.prepare();
-      this.readableBookmarks = new BookmarkReadableLayer(this.container, this.bookmarkCovers.mesh);
+      try { this.readableBookmarks = new BookmarkReadableLayer(this.container, this.bookmarkCovers.mesh); }
+      catch (error) {
+        // The browser may refuse a second context; the spines then render in the main scene.
+        console.warn(error);
+        this.scene.add(this.bookmarkCovers.mesh);
+      }
       this.unsubscribeCover = onBookmarkIcon(() => { this.drawLabel(this.selectedIndex); this.renderState.invalidate(); });
     }
   }
@@ -1413,13 +1428,18 @@ export class ArchiveScene {
       this.returnY === null &&
       !aligningCopy &&
       time - this.lastInteraction > 2.5;
+    // After the configured time without input the breathing calms down to a still
+    // frame, which the renderer can then reuse instead of redrawing.
+    const breathing = time - Math.max(this.lastInteraction + 2.5, this.lastActivity) < this.idleBreathingLimit;
+    const idleTarget = idle ? (this.playfield.enabled ? (this.playfield.breathing && !this.relayActive ? 1 - this.playfield.bands.activity : 0) : Number(breathing)) : 0;
     this.idleGain = cinematic
       ? 0
       : THREE.MathUtils.lerp(
           this.idleGain,
-          idle ? (this.playfield.enabled ? (this.playfield.breathing && !this.relayActive ? 1 - this.playfield.bands.activity : 0) : 1) : 0,
-          1 - Math.exp(-dt * (idle ? 0.8 : 4)),
+          idleTarget,
+          1 - Math.exp(-dt * (idle ? (breathing ? 0.8 : 1.5) : 4)),
         );
+    if (!idleTarget && this.idleGain < 0.002) this.idleGain = 0;
     this.pulseGain = THREE.MathUtils.lerp(
       this.pulseGain,
       this.targetDetail || this.returnY !== null || aligningCopy ? 0 : 1,
@@ -1904,6 +1924,7 @@ export class ArchiveScene {
       if (!state.end()) { this.reusedFrames++; return; }
     }
     this.renderedFrames++;
+    this.lastRenderTime = performance.now();
     this.renderer.shadowMap.needsUpdate = true;
     if (this.superPerformance) this.renderer.render(this.scene, this.camera);
     else this.composer.render();
@@ -1946,6 +1967,7 @@ export class ArchiveScene {
       drawCalls: this.renderer.info.render.calls,
       renderedFrames: this.renderedFrames,
       reusedFrames: this.reusedFrames,
+      bookmarkAtlas: this.bookmarkCovers?.stats,
       superPerformance: this.superPerformance,
       presentation: this.presence,
       triangles: this.renderer.info.render.triangles,

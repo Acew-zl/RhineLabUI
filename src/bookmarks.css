@@ -31,9 +31,11 @@
 .search-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .bookmark-search [hidden] { display: none !important; }
 .bookmark-inspect { display: block; margin-top: 18px; font-size: 14px; opacity: .75; }
-.bookmark-status { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); border-block: 1px solid var(--theme-line, #969183); }
-.bookmark-status[hidden] { display: none; }
-.bookmark-status button { margin-left: 12px; text-decoration: underline; }
+.bookmark-status, .three-notice { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); border-block: 1px solid var(--theme-line, #969183); }
+:is(.bookmark-status, .three-notice)[hidden] { display: none; }
+:is(.bookmark-status, .three-notice) button { margin-left: 12px; text-decoration: underline; }
+/* Both notices can be present; keep the 3D notice above the bookmark status. */
+.bookmark-status:not([hidden]) ~ .three-notice { bottom: 54px; }
 #bookmark-search-engine, #bookmark-open-mode { background: transparent; color: inherit; padding: 8px; max-width: 45%; }
 .bookmark-icon-status { display: flex; align-items: center; gap: 14px; padding: 14px 0; font-size: 12px; color: var(--theme-muted, #77756d); }
 .bookmark-icon-status span { flex: 1; }
@@ -49,7 +51,7 @@
 @keyframes bookmark-search-enter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 .reduce-motion .bookmark-search * { animation: none !important; transition: none !important; }
 /* Bookmark navigation keeps one focal group beside the selected glass file. */
-[data-bookmarks="true"] .bookmark-search { top: 68px; left: 50%; width: min(720px, 42%); transform: translateX(-50%); }
+[data-bookmarks="true"] .bookmark-search { top: 68px; left: 50%; width: min(720px, 42%, calc(100% - 2 * var(--nav-reserve, 0px))); transform: translateX(-50%); }
 [data-bookmarks="true"] .archive-callout { left: 74%; top: 39%; width: calc(26% - var(--edge)); display: flex; flex-direction: column; align-items: stretch; }
 [data-bookmarks="true"] .archive-callout .column-navigation { position: static; inset: auto; width: 100%; gap: 12px; padding-bottom: 22px; margin-bottom: 24px; border-bottom: 1px solid var(--theme-line, #bdb8ad); order: 0; }
 [data-bookmarks="true"] .column-navigation > div { flex: 1; min-width: 0; gap: 9px; overflow: hidden; }
@@ -137,6 +139,7 @@
 #bookmark-folder-position { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); color: var(--theme-muted, #68665e); letter-spacing: .3px; }
 [data-bookmarks="true"] .column-navigation > div { overflow: visible; }
 .bookmark-result-logo { flex: 0 0 28px; width: 28px; height: 28px; }
+.bookmark-alternative-glyph { flex: 0 0 28px; width: 28px; text-align: center; font-size: 18px; color: var(--theme-muted, #77756d); }
 #bookmark-suggestions [role="option"] { display: flex; align-items: center; gap: 12px; }
 .bookmark-result-identity { display: block; flex: 1; min-width: 0; }
 [data-bookmarks="true"] .result-name { min-width: 0; gap: 12px; }
@@ -157,3 +160,22 @@
 [data-bookmarks="true"] :is(.result-row > span:not(.result-name), .result-header, .modal-top button, .audio-volume output, .quality-range output) { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); }
 [data-bookmarks="true"] .terminal-modal .search-field input { font-size: max(16px, calc(16 * var(--bookmark-ui-unit, 1px))); }
 [data-bookmarks="true"] .terminal-modal .search-field input::placeholder { font-size: max(14px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+/* Remaining labels, footers and detail controls: at least 12 display pixels
+   (functional buttons 14) on small screens, the original sizes on large ones. */
+[data-bookmarks="true"][data-layout="desktop"] :is(.detail-footnote, .detail-footnote :is(a, button)) { font-size: max(8px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] :is(.modal-bottom, .settings-shortcuts > span, .settings-shortcuts kbd, .detail-kicker span:last-child) { font-size: max(9px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] :is(.archive-callout .eyebrow, .system-footer, .system-footer button, .detail-tabs button, .back-button small, .settings-intro) { font-size: max(10px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] :is(.archive-counter .tiny-label, .bookmark-search-heading .key, .detail-kicker, .detail-title-cn > span, .panel-label, .solid-button, .solid-button > span, .export-button, .modal-top, .terminal-modal .search-field .key, .quality-advanced > summary span, .settings-shortcuts p, .settings-bottom button) { font-size: max(11px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] :is(.archive-callout .file-title, .back-button span, .theme-settings span) { font-size: max(12px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] .theme-choices button { font-size: max(13px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] .detail-tabs button span { font-size: max(15px, calc(14 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"][data-layout="desktop"] .terminal-modal h2 small { font-size: max(15px, calc(12 * var(--bookmark-ui-unit, 1px))); }
+[data-bookmarks="true"]:is([data-layout="compact"], [data-layout="portrait"]) :is(.system-footer, .system-footer button, .archive-callout .eyebrow, .archive-counter .tiny-label, .back-button span, .back-button small, .detail-kicker, .detail-kicker span:last-child, .detail-title-cn > span, .detail-tabs button, .panel-label, .solid-button, .solid-button > span, .export-button, .detail-footnote, .detail-footnote :is(a, button), .modal-top, .modal-bottom, .terminal-modal .search-field .key, .bookmark-search-heading .key, .settings-intro, .quality-advanced > summary span, .settings-shortcuts, .settings-shortcuts :is(span, p, kbd), .settings-bottom button) { font-size: 12px; }
+/* Sound shares the settings button's glyph-and-label form. */
+.system-nav .sound-button { position: relative; }
+.sound-glyph { display: block; width: 26px; height: 26px; }
+.sound-glyph svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.sound-button[data-muted="true"] .sound-wave, .sound-button[data-muted="false"] .sound-off { display: none; }
+/* Very narrow windows keep the directory as an icon, as in the original portrait layout. */
+@media (max-width: 640px) { [data-bookmarks="true"][data-layout="portrait"] .system-nav button[data-action="search"] { font-size: 0; gap: 0; } }
+.three-notice .three-notice-close { margin-left: 8px; text-decoration: none; }

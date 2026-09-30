@@ -1,7 +1,8 @@
 import { cycleLabelOpacity } from './bookmark-readability';
 import { type ArchiveCell, wrap } from './archive-loop';
 import * as THREE from 'three';
-import { records, columnFiles, archiveColumns, type ArchiveRecord } from './data';
+import { records, columnFiles, archiveColumns, fileLocation, type ArchiveRecord } from './data';
+import { AtlasSlots } from './bookmark-atlas-slots';
 import { faviconSources } from './bookmarks';
 import { loadBookmarkIcon } from './bookmark-icon-loader';
 import { bookmarkColumnColor } from './bookmark-colors';
@@ -9,10 +10,13 @@ import { yieldPreparation } from './presentation-preparation';
 import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from './bookmark-spine';
 
 export const coverPreferences = { logo: true, title: true };
-try {
-  const saved = JSON.parse(localStorage.getItem('rhine-bookmark-covers') ?? '{}');
-  for (const key of ['logo', 'title'] as const) if (typeof saved[key] === 'boolean') coverPreferences[key] = saved[key];
-} catch { /* Keep defaults when storage is unavailable. */ }
+export function reloadCoverPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('rhine-bookmark-covers') ?? '{}');
+    for (const key of ['logo', 'title'] as const) coverPreferences[key] = typeof saved?.[key] === 'boolean' ? saved[key] : true;
+  } catch { /* Keep defaults when storage is unavailable. */ }
+}
+reloadCoverPreferences();
 export function saveCoverPreference(key: 'logo' | 'title', value: boolean) {
   coverPreferences[key] = value;
   try { localStorage.setItem('rhine-bookmark-covers', JSON.stringify(coverPreferences)); } catch { /* Session only. */ }
@@ -96,15 +100,36 @@ export function paintBookmarkCover(context: CanvasRenderingContext2D, record: Ar
     const available = width - start - x;
     let text = record.title;
     if (context.measureText(text).width > available) {
+      // Longest prefix that fits with an ellipsis; binary search keeps long titles cheap.
       const chars = Array.from(text);
-      while (chars.length && context.measureText(chars.join('') + '…').width > available) chars.pop();
-      text = chars.join('') + '…';
+      let low = 0, high = chars.length - 1;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (context.measureText(chars.slice(0, middle).join('') + '…').width > available) high = middle - 1;
+        else low = middle;
+      }
+      text = chars.slice(0, low).join('') + '…';
     }
     context.fillText(text, start, height * .51);
   }
   context.textAlign = 'left'; context.textBaseline = 'alphabetic';
 }
 
+const cellDistance = (cell: ArchiveCell, center: ArchiveCell) => Math.abs(cell.lane - center.lane) * 3 + Math.abs(cell.row - center.row);
+/** Bookmarks ordered by how near they appear to `origin` when the array first opens. */
+export function nearestRecords(origin: number) {
+  const lanes = archiveColumns.length, originLane = fileLocation(origin).lane;
+  const priority = records.map((_, index) => {
+    const { lane, row } = fileLocation(index), count = columnFiles(lane).length, position = row - 12;
+    const laneDistance = Math.min(wrap(lane - originLane, lanes), wrap(originLane - lane, lanes));
+    return laneDistance * 3 + Math.min(position, count - position);
+  });
+  return records.map((_, index) => index).sort((a, b) => priority[a] - priority[b]);
+}
+/** Above this many bookmarks the atlas keeps slots for the visible labels only. */
+export const ATLAS_SLOT_CAPACITY = 512;
+const UPLOAD_INTERVAL = 250;
+const PAINT_BUDGET = 48;
 /** One atlas and one instanced draw for spine decals; shares the card transforms. */
 export class BookmarkCovers {
   readonly mesh: THREE.InstancedMesh;
@@ -119,12 +144,23 @@ export class BookmarkCovers {
   private paintedIcons = new Map<number, ImageBitmap | null | undefined>();
   private unsubscribe: () => void;
   private dirty = false;
+  // Large collections: slot → record painted there / already uploaded to the GPU.
+  private slots?: AtlasSlots;
+  private painted: Int32Array;
+  private uploaded: Int32Array;
+  private unpainted = new Set<number>();
+  private pendingUpload = false;
+  private lastUpload = -Infinity;
   constructor(maxSize: number, private invalidate: () => void) {
+    const capacity = records.length > ATLAS_SLOT_CAPACITY ? ATLAS_SLOT_CAPACITY : records.length;
+    if (capacity < records.length) this.slots = new AtlasSlots(capacity);
+    this.painted = new Int32Array(capacity).fill(-1);
+    this.uploaded = new Int32Array(capacity).fill(-1);
     const limit = Math.min(8192, maxSize);
     let tile = 1024;
-    while (Math.ceil(records.length / Math.floor(limit / tile)) * (tile / 16) > limit && tile > 32) tile /= 2;
-    this.columns = Math.min(Math.floor(limit / tile), records.length);
-    this.rows = Math.ceil(records.length / this.columns);
+    while (Math.ceil(capacity / Math.floor(limit / tile)) * (tile / 16) > limit && tile > 32) tile /= 2;
+    this.columns = Math.min(Math.floor(limit / tile), capacity);
+    this.rows = Math.ceil(capacity / this.columns);
     this.width = tile; this.height = Math.max(8, Math.floor(tile * SPINE_TEXTURE_HEIGHT / SPINE_TEXTURE_WIDTH));
     this.canvas.width = this.columns * this.width;
     this.canvas.height = this.rows * this.height;
@@ -151,21 +187,42 @@ export class BookmarkCovers {
     this.unsubscribe = onBookmarkIcon(() => { this.dirty = true; this.invalidate(); });
   }
   async prepare() {
-    for (let i = 0; i < records.length; i++) {
-      this.paint(i);
+    const order = this.slots ? this.slots.capacity : records.length;
+    const initial = this.slots ? nearestRecords(0) : records.map((_, index) => index);
+    if (this.slots) this.slots.assign(initial.slice(0, order));
+    for (let i = 0; i < order; i++) {
+      this.paint(initial[i]);
       if (i % 32 === 31) await yieldPreparation();
     }
-    this.texture.needsUpdate = true;
+    this.upload(true);
   }
+  private slotFor(record: number) { return this.slots ? this.slots.slotFor(record) : record; }
   private paint(index: number) {
+    const slot = this.slotFor(index);
+    if (slot < 0) return;
     const c = this.canvas.getContext('2d')!;
-    c.save(); c.translate(index % this.columns * this.width, Math.floor(index / this.columns) * this.height);
+    c.save(); c.translate(slot % this.columns * this.width, Math.floor(slot / this.columns) * this.height);
     paintBookmarkCover(c, records[index], this.width, this.height); c.restore();
     this.paintedIcons.set(index, bookmarkIcon(records[index], false));
+    this.painted[slot] = index;
+    this.unpainted.delete(index);
+    this.pendingUpload = true;
+  }
+  /** Canvas uploads are whole-texture; while icons stream in, batch them a few times a second. */
+  private upload(force = false) {
+    if (!this.pendingUpload) return;
+    const now = performance.now();
+    if (!force && now - this.lastUpload < UPLOAD_INTERVAL) { this.invalidate(); return; }
+    this.texture.needsUpdate = true;
+    this.uploaded.set(this.painted);
+    this.pendingUpload = false;
+    this.lastUpload = now;
+    this.invalidate();
   }
   refresh() {
-    for (let i = 0; i < records.length; i++) this.paint(i);
-    this.texture.needsUpdate = true; this.invalidate();
+    if (this.slots) for (let slot = 0; slot < this.painted.length; slot++) { if (this.painted[slot] >= 0) this.paint(this.painted[slot]); }
+    else for (let i = 0; i < records.length; i++) this.paint(i);
+    this.upload(true);
   }
   sync(source: THREE.InstancedMesh, theme: THREE.InstancedBufferAttribute, recordsAtInstances: number[], cells?: ArchiveCell[], center?: ArchiveCell) {
     this.mesh.visible = coverPreferences.logo || coverPreferences.title;
@@ -180,24 +237,39 @@ export class BookmarkCovers {
     this.mesh.instanceMatrix = source.instanceMatrix;
     this.mesh.geometry.setAttribute('archiveTheme', theme);
     this.mesh.count = recordsAtInstances.length;
-    let changed = false, painted = false, visibilityChanged = false;
+    const opacities = recordsAtInstances.map((index, i) => {
+      const cell = cells?.[i];
+      return records[index].empty ? 0 : cell && center ? bookmarkCellOpacity(cell, center) : 1;
+    });
+    if (this.slots) {
+      // Nearest labels first: when the slots are full, the farthest labels stay hidden.
+      const wanted = recordsAtInstances.map((_, i) => i).filter(i => opacities[i] > 0);
+      if (cells && center) wanted.sort((a, b) => cellDistance(cells[a], center) - cellDistance(cells[b], center));
+      for (const record of this.slots.assign(wanted.map(i => recordsAtInstances[i]))) this.unpainted.add(record);
+      let budget = PAINT_BUDGET;
+      for (const record of [...this.unpainted]) { if (budget-- <= 0) break; this.paint(record); }
+    }
+    let changed = false, visibilityChanged = false;
     for (let i = 0; i < recordsAtInstances.length; i++) {
       const index = recordsAtInstances[i];
-      const cell = cells?.[i];
-      const opacity = records[index].empty ? 0 : cell && center
-        ? bookmarkCellOpacity(cell, center)
-        : 1;
-      const rounded = Math.round(opacity * 1000) / 1000;
+      const slot = this.slotFor(index);
+      // A reused slot shows its new label only after it has been painted and uploaded.
+      const shown = !this.slots || (slot >= 0 && this.uploaded[slot] === index);
+      const rounded = shown ? Math.round(opacities[i] * 1000) / 1000 : 0;
       if (Math.abs(this.visibility.array[i] - rounded) > .0001) { this.visibility.array[i] = rounded; visibilityChanged = true; }
-      if (this.indexes.array[i] !== index) { this.indexes.array[i] = index; changed = true; }
+      const target = Math.max(0, slot);
+      if (this.indexes.array[i] !== target) { this.indexes.array[i] = target; changed = true; }
+      if (slot < 0) continue;
       if (coverPreferences.logo) bookmarkIcon(records[index]);
-      if (this.dirty && this.paintedIcons.get(index) !== bookmarkIcon(records[index], false)) { this.paint(index); painted = true; }
+      if (this.dirty && this.painted[slot] === index && this.paintedIcons.get(index) !== bookmarkIcon(records[index], false)) this.paint(index);
     }
     if (changed) this.indexes.needsUpdate = true;
     if (visibilityChanged) { this.visibility.needsUpdate = true; this.invalidate(); }
-    if (painted) this.texture.needsUpdate = true;
     // Keep dirty until offscreen icons are painted when they next become visible.
+    this.upload();
   }
+  /** Atlas size and mode, for diagnostics. */
+  get stats() { return { width: this.canvas.width, height: this.canvas.height, tile: this.width, slots: this.slots?.capacity ?? 0 }; }
   dispose() {
     this.unsubscribe(); this.mesh.removeFromParent(); this.mesh.dispose();
     this.mesh.geometry.dispose(); (this.mesh.material as THREE.Material).dispose(); this.texture.dispose();

@@ -1,10 +1,10 @@
-import { bookmarkStartupReady, normalizeStartupMode } from '../src/bookmark-startup.ts';
+import { bookmarkStartupReady, normalizeStartupMode, resolveOpeningMode, localDate } from '../src/bookmark-startup.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { bookmarkColumns, bookmarkTarget, bookmarkDisplayTitle } from '../src/bookmark-data.ts';
 import { installBookmarkCatalog, records, columnFiles } from '../src/data.ts';
 import { fileAtCell, selectionCell } from '../src/archive-loop.ts';
-import { searchTarget, createBookmarkSearch } from '../src/bookmark-search.ts';
+import { searchTarget, createBookmarkSearch, classifySearchInput, webSearchTarget } from '../src/bookmark-search.ts';
 import { bookmarkSpineGeometry } from '../src/bookmark-spine.ts';
 import { getBookmarkOpenMode, normalizeOpenMode, openBookmarkDestination, setBookmarkOpenMode } from '../src/bookmark-navigation.ts';
 import { loadBookmarkIcon } from '../src/bookmark-icon-loader.ts';
@@ -52,6 +52,35 @@ test('new-tab default preserves the navigation page; current-tab is an explicit 
   assert.equal(calls.length, 0);
   setBookmarkOpenMode('new-tab');
 });
+test('browser pages and local files open through the extension tab API beside the start page', async () => {
+  const calls = [];
+  const tabs = {
+    getCurrent: async () => ({ id: 7, index: 2 }),
+    create: async properties => { calls.push(['create', properties]); },
+    update: async (id, properties) => { calls.push(['update', id, properties]); },
+  };
+  const host = { open: (...args) => calls.push(['window', ...args]), location: { assign: url => calls.push(['assign', url]) }, tabs, fileAccess: async () => true };
+  await openBookmarkDestination('chrome://settings/', host, 'new-tab');
+  await openBookmarkDestination('edge://settings/', host, 'current-tab');
+  await openBookmarkDestination('file:///C:/notes.txt', host, 'new-tab');
+  // Web pages still open synchronously inside the user gesture.
+  await openBookmarkDestination('https://example.com/', host, 'new-tab');
+  assert.deepEqual(calls, [
+    ['create', { url: 'chrome://settings/', index: 3, openerTabId: 7 }],
+    ['update', 7, { url: 'edge://settings/' }],
+    ['create', { url: 'file:///C:/notes.txt', index: 3, openerTabId: 7 }],
+    ['window', 'https://example.com/', '_blank', 'noopener,noreferrer'],
+  ]);
+  const notices = [];
+  const { setNavigationNotice } = await import('../src/bookmark-navigation.ts');
+  setNavigationNotice(message => notices.push(message));
+  await openBookmarkDestination('file:///C:/notes.txt', { ...host, fileAccess: async () => false }, 'new-tab');
+  await openBookmarkDestination('chrome://settings/', { ...host, tabs: { ...tabs, create: async () => { throw new Error('blocked'); } } }, 'new-tab');
+  assert.equal(calls.length, 4, 'A blocked local file does not open a tab');
+  assert.match(notices[0], /允许访问文件网址/);
+  assert.match(notices[1], /不允许/);
+  setNavigationNotice(() => {});
+});
 test('web search encodes queries and only navigates HTTP(S) URLs directly', () => {
   assert.equal(searchTarget('   '),undefined);
   assert.equal(searchTarget('example.com/a'), 'https://example.com/a');
@@ -59,10 +88,32 @@ test('web search encodes queries and only navigates HTTP(S) URLs directly', () =
   assert.equal(searchTarget('莱茵 生命 & logo', 'google'), 'https://www.google.com/search?q=' + encodeURIComponent('莱茵 生命 & logo'));
   assert.equal(searchTarget('javascript:alert(1)'), 'https://www.bing.com/search?q=javascript%3Aalert(1)');
   assert.equal(searchTarget('example.com?q=a#b'), 'https://example.com/?q=a#b');
-  assert.equal(searchTarget('localhost:5190/a'), 'https://localhost:5190/a');
+  assert.equal(searchTarget('localhost:5190/a'), 'http://localhost:5190/a');
   assert.equal(searchTarget('http://127.0.0.1:5190/'), 'http://127.0.0.1:5190/');
   assert.equal(searchTarget('someone@example.com'), 'https://www.bing.com/search?q=someone%40example.com');
   assert.equal(searchTarget('data:text/html,<script>'), 'https://www.bing.com/search?q=data%3Atext%2Fhtml%2C%3Cscript%3E');
+});
+test('typed text is an address only with a real domain ending, an IP address or a local server', () => {
+  const google = 'https://www.google.com/search?q=';
+  // Ordinary words and numbers are searched rather than opened as hosts.
+  for (const text of ['3.14', '1.1', '10.0', '1.2.3', 'node.js', 'package.json', 'e.g.', 'a..b', '1.5倍', 'C++', 'vue 3.5', 'nas:5000'])
+    assert.equal(searchTarget(text, 'google'), google + encodeURIComponent(text), text);
+  assert.equal(searchTarget('github.com', 'google'), 'https://github.com/');
+  assert.equal(searchTarget('GitHub.com/foo'), 'https://github.com/foo');
+  assert.equal(searchTarget('莱茵.中国'), 'https://xn--bl1awj.xn--fiqs8s/');
+  // Local servers, routers and IP addresses use plain HTTP.
+  assert.equal(searchTarget('localhost:3000'), 'http://localhost:3000/');
+  assert.equal(searchTarget('192.168.1.1'), 'http://192.168.1.1/');
+  assert.equal(searchTarget('[::1]:8080/a'), 'http://[::1]:8080/a');
+  assert.equal(searchTarget('nas.local:5000'), 'http://nas.local:5000/');
+  assert.equal(searchTarget('printer.local/'), 'http://printer.local/');
+  // The other reading of ambiguous text is offered as the list alternative.
+  assert.deepEqual(classifySearchInput('node.js'), { kind: 'search', url: 'https://node.js/' });
+  assert.deepEqual(classifySearchInput('nas:5000'), { kind: 'search', url: 'http://nas:5000/' });
+  assert.deepEqual(classifySearchInput('3.14'), { kind: 'search' });
+  assert.deepEqual(classifySearchInput('github.com'), { kind: 'url', url: 'https://github.com/' });
+  assert.equal(classifySearchInput('   '), undefined);
+  assert.equal(webSearchTarget('github.com', 'bing'), 'https://www.bing.com/search?q=github.com');
 });
 test('local search ranks exact/prefix titles, matches all terms, and excludes unavailable targets', () => {
   const find = createBookmarkSearch([
@@ -93,6 +144,22 @@ test('bar leaves first; top folders preserve browser order and nest by path', ()
   assert.equal(catalog.records.length,48);
   assert.ok(!catalog.records.some(r=>r.bookmarkId==='outside'));
 });
+test('other and mobile bookmarks are searchable, and become columns only when chosen', () => {
+  const withOther = [{ id: '0', title: '', children: [
+    { id: '1', title: '书签栏', folderType: 'bookmarks-bar', children: [{ id: 'f', title: '学习', children: [{ id: 'a', title: 'MDN', url: 'https://developer.mozilla.org/' }] }] },
+    { id: '2', title: '其他书签', folderType: 'other', children: [{ id: 'o', title: 'Docs', url: 'https://docs.example/' }, { id: 'of', title: '归档', children: [{ id: 'o2', title: 'Old', url: 'https://old.example/' }] }] },
+    { id: '3', title: '移动设备书签', folderType: 'mobile', children: [{ id: 'm', title: 'Phone', url: 'https://m.example/' }, { id: 'js', title: 'Run', url: 'javascript:void(0)' }] },
+  ] }];
+  const barOnly = bookmarkColumns(withOther);
+  // A bar with only folders no longer opens on an empty placeholder column.
+  assert.deepEqual(barOnly.columns, ['学习']);
+  assert.ok(!barOnly.records.some(record => record.empty));
+  assert.deepEqual(barOnly.extras.map(extra => [extra.title, extra.bookmarkFolder]), [['Docs', '其他书签'], ['Old', '其他书签 / 归档'], ['Phone', '移动设备书签']]);
+  const all = bookmarkColumns(withOther, { includeOther: true });
+  assert.deepEqual(all.columns, ['学习', '其他书签', '归档', '移动设备书签']);
+  assert.equal(all.extras.length, 0);
+  assert.equal(all.records.find(record => record.title === 'Old').bookmarkFolder, '其他书签 / 归档');
+});
 test('empty bar still provides a usable placeholder', () => {
   const catalog = bookmarkColumns([]);
   assert.equal(catalog.columns.length,1); assert.equal(catalog.records.length,1);
@@ -122,10 +189,12 @@ test('variable folder lengths including over 32 entries loop without cross-folde
 test('large catalogs are indexed once and expose every bookmark', () => {
   const catalog=bookmarkColumns([{id:'0',title:'',children:[{id:'1',title:'',children:[{id:'f',title:'大型目录',children:Array.from({length:2000},(_,i)=>({id:`b${i}`,title:`书签${i}`,url:`https://example.com/${i}`}))}]}]}]);
   installBookmarkCatalog(catalog.records,catalog.columns);
-  assert.equal(columnFiles(1).length,2000);
-  assert.equal(columnFiles(1),columnFiles(1), 'Reuse cached column indexes during rendering');
-  assert.equal(records[fileAtCell({lane:1,row:2011})].title,'书签1999');
-  assert.equal(records[fileAtCell({lane:1,row:2012})].title,'书签0');
+  // The bar holds only this folder, so it is the first column.
+  assert.deepEqual(catalog.columns,['大型目录']);
+  assert.equal(columnFiles(0).length,2000);
+  assert.equal(columnFiles(0),columnFiles(0), 'Reuse cached column indexes during rendering');
+  assert.equal(records[fileAtCell({lane:0,row:2011})].title,'书签1999');
+  assert.equal(records[fileAtCell({lane:0,row:2012})].title,'书签0');
 });
 
 
@@ -137,12 +206,24 @@ test('bookmark names stay verbatim, including empty names and URL-looking titles
 
 
 test('startup choices never expose an unprepared scene and full replay stays full', () => {
-  assert.equal(normalizeStartupMode('broken'), 'full');
+  assert.equal(normalizeStartupMode('broken'), 'daily');
+  assert.equal(normalizeStartupMode(null), 'daily', 'Users who never chose get the daily opening');
+  for (const mode of ['full', 'brief', 'direct']) assert.equal(normalizeStartupMode(mode), mode, 'An explicit choice is kept');
   for (const mode of ['full', 'brief', 'direct']) assert.equal(bookmarkStartupReady(mode, 100, false), false);
   assert.equal(bookmarkStartupReady('full', 100, true), false);
   assert.equal(bookmarkStartupReady('brief', 2, true), false);
   assert.equal(bookmarkStartupReady('brief', 3, true), true);
   assert.equal(bookmarkStartupReady('direct', 0, true), true);
+});
+test('daily opening plays the full film once per local day, then the brief one', () => {
+  const today = localDate(new Date(2026, 8, 30, 23, 59));
+  assert.equal(today, '2026-09-30');
+  assert.equal(resolveOpeningMode('daily', null, today), 'full');
+  assert.equal(resolveOpeningMode('daily', '2026-09-29', today), 'full');
+  assert.equal(resolveOpeningMode('daily', today, today), 'brief');
+  assert.equal(resolveOpeningMode('full', today, today), 'full');
+  assert.equal(resolveOpeningMode('direct', null, today), 'direct');
+  assert.equal(localDate(new Date(2026, 9, 1, 0, 0)), '2026-10-01');
 });
 test('unnamed bookmark body uses its URL without modifying the spine title', () => {
   const record = { title: '', bookmarkUrl: 'https://example.com/path', abstract: 'raw' };

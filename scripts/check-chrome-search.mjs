@@ -29,6 +29,17 @@ test('Chrome URL input navigates directly; unsafe schemes remain search text', a
   ]);
 });
 
+test('Chrome alternative action searches text that reads as an address', async () => {
+  const calls = [];
+  const api = { query: async details => { calls.push({ query: details }); } };
+  await submitChromeSearch('github.com', 'new-tab', api, url => calls.push({ url }), true);
+  await submitChromeSearch('node.js', 'new-tab', api, url => calls.push({ url }));
+  assert.deepEqual(calls, [
+    { query: { text: 'github.com', disposition: 'NEW_TAB' } },
+    { query: { text: 'node.js', disposition: 'NEW_TAB' } },
+  ]);
+});
+
 test('Chrome build never falls back to a hard-coded web provider', async () => {
   await assert.rejects(submitChromeSearch('query', 'new-tab', undefined, () => {}), /默认搜索功能不可用/);
 });

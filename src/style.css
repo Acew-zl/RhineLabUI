@@ -1122,6 +1122,9 @@ button {
   color: #82796a;
   letter-spacing: 1px;
 }
+.result-more {
+  height: 1px;
+}
 .search-results {
   height: 387px;
   overflow-y: auto;
@@ -1286,7 +1289,9 @@ button {
   color: #938977;
   margin-top: 9px;
 }
-#render-pace {
+#render-pace,
+#idle-motion,
+#motion-preference {
   font: inherit;
   background: transparent;
   color: inherit;
@@ -1296,7 +1301,9 @@ button {
   min-width: 0;
   flex-shrink: 0;
 }
-#render-pace:focus-visible {
+#render-pace:focus-visible,
+#idle-motion:focus-visible,
+#motion-preference:focus-visible {
   outline: 2px solid var(--theme-accent, #a67d48);
   outline-offset: 4px;
 }

@@ -9,5 +9,6 @@ This extension is a non-official fan project maintained by Acew-zl, based on LBE
 - MiSans by Xiaomi, delivered through misans-webfont@4.3.1: see fonts/NOTICE.txt, fonts/MiSans-license.pdf and fonts/misans-webfont-4.3.1/source.json. The independent Novecento font kit is excluded from this extension.
 - Rolling Number: licenses/rolling-number.txt.
 - Three.js: licenses/three.txt.
+- Top-level domain list used to tell typed addresses from search text: generated from the IANA root zone list (https://data.iana.org/TLD/tlds-alpha-by-domain.txt) by scripts/update-tlds.mjs; this copy was taken from the MIT-licensed tlds@1.261.0 package. It is bundled and never fetched at runtime.
 
 The original PV is not included. Runtime assets are bundled locally; the browser supplies bookmark data and cached favicons.

@@ -1,6 +1,6 @@
 # 商店发布字段
 
-状态：Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。0.8.5 本地包新增首次开场命名和帧率设置，沿用下列两版搜索说明和权限理由，尚未上传商店。具体账号资料使用商店当前登录账号。
+状态：Edge 完整版 0.8.2 已上线；Chrome 专用版 0.8.3 已通过审核（2026-09-28 用户确认）。0.8.5 本地包新增首次开场命名和帧率设置；0.8.6 本地包新增默认静音与声音按钮、每天首次完整开场、静止后停止重绘、无 WebGL 时的 2D 界面和更准确的网址判断。两者沿用下列两版搜索说明和权限理由，无新增权限，尚未上传商店。具体账号资料使用商店当前登录账号。
 
 ## 通用字段
 
@@ -26,7 +26,7 @@ Rhine Lab · 莱茵生命起始页是一款以玻璃档案终端为视觉主题�
 • 朝上的书脊显示网站图标和浏览器保存的书签名称，图标与文字可以分别关闭；各列保留选档记忆。
 • 打开书签默认新建标签页，让起始页继续保留；也可在设置中改为当前页打开。
 • 顶部搜索框支持本地书签匹配和主动网络搜索；网络搜索遵循 Chrome 当前的默认搜索引擎。
-• 完整开场、简短开场或直接进入三维档案三种启动方式，提供亮色/暗色主题、声音和画质设置。
+• 默认每天首次播放完整开场，之后使用简短动画；也可选择每次完整、简短开场或直接进入。提供亮色/暗色/跟随系统主题和画质设置；声音默认关闭，可随时一键开启。
 • 首次开场可输入本机显示名称，按 Enter 确认，留空使用默认名称；可在设置中修改，不读取浏览器账号。
 • 保留档案详情和 360° 模型查看、旋转、拆解与重组。
 
@@ -34,7 +34,7 @@ Rhine Lab · 莱茵生命起始页是一款以玻璃档案终端为视觉主题�
 扩展在本机读取书签栏和浏览器缓存的网站图标，不修改浏览器书签，不向开发者上传书签列表，不含广告或使用统计。只有主动提交网络搜索或打开书签时才访问相应网站。模型、字体和声音随扩展本地打包。
 
 使用说明：
-需要支持 WebGL 2 的桌面浏览器。没有书签时，可先在浏览器书签栏添加内容。网站图标取决于浏览器缓存，缺失时会显示占位；可在设置中重试。三维画面会使用 GPU，低配设备可选性能档。扩展替换新标签页，不修改默认搜索引擎或浏览器启动页设置。
+建议使用支持 WebGL 2 的桌面浏览器；硬件加速不可用时自动使用 2D 界面，书签和搜索照常可用。没有书签时，可先在浏览器书签栏添加内容。网站图标取决于浏览器缓存，缺失时会显示占位；可在设置中重试。三维画面会使用 GPU，静置后画面停止重绘；低配设备可选节能帧率或性能档。扩展替换新标签页，不修改默认搜索引擎或浏览器启动页设置。
 
 本项目由 Acew-zl 基于 LBEILC/RhineLabUI 改造，是《明日方舟》相关的非官方同人项目，与官方制作方无隶属或背书关系。界面语言以中文为主，部分装饰文字为英文。
 
@@ -58,4 +58,4 @@ Remote code: No. JavaScript, fonts, GLB models, and audio are bundled inside the
 
 ## 审核测试说明 / Notes for certification
 
-No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish. On first use, the opening pauses at ID CONFIRMED: enter an optional display name and press Enter, or leave it empty and press Enter to use JOYCE MOORE. The name and confirmation are stored only locally, can be edited under Settings / Startup and motion, and require no browser account or new permissions. Then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected keyword invokes chrome.search.query with Chrome's current default search provider. The extension has no provider selector and does not change Chrome's default provider. Settings support short/direct startup, light/dark theme, and performance quality. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.
+No test account or paid subscription is required. Install the extension and open a new tab. Add two bookmarks to the browser bookmarks bar and a folder with a bookmark if the test browser has none. Allow the startup resources to finish. On first use, the opening pauses at ID CONFIRMED: enter an optional display name and press Enter, or leave it empty and press Enter to use JOYCE MOORE. The name and confirmation are stored only locally, can be edited under Settings / Startup and motion, and require no browser account or new permissions. Then enter the interface. Use left/right to switch folders and up/down or the mouse wheel to select a bookmark. Enter opens the selected bookmark in a new tab by default; double-clicking the selected 3D archive opens details. Type into the top search box to see local bookmark matches; submitting an unselected keyword invokes chrome.search.query with Chrome's current default search provider. The extension has no provider selector and does not change Chrome's default provider. Sound is off by default; the speaker button beside Settings turns it on. Settings support daily/full/short/direct startup, light/dark/system theme, and performance quality. Without WebGL (hardware acceleration disabled), the page switches to a 2D interface where bookmarks and search still work. All render resources are local. Favicon availability depends on browser cache. Screenshots use explicitly marked sample bookmarks, not personal user data.

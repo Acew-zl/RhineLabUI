@@ -1,15 +1,17 @@
 import { getBookmarkSummaryLogo, mountBookmarkSummaryLogo, bookmarkResultIcon, refreshBookmarkResultIcons } from './bookmark-summary';
 import { getBookmarkStartupMode } from './bookmark-startup';
 import { bookmarkDisplayTitle } from './bookmark-data';
-import { bookmarkStatus } from './bookmarks';
+import { bookmarkStatus, bookmarkExtras } from './bookmarks';
+import { getIncludeOtherBookmarks } from './bookmark-scope';
 import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
-import { createBookmarkSearch } from './bookmark-search';
-import { searchTarget, engineNames, engineOptions, getSearchEngine, bindSearchEngineSelect } from '@search-provider';
+import { createBookmarkSearch, classifySearchInput, type SearchIntent } from './bookmark-search';
+import { searchTarget, webSearchTarget, engineNames, engineOptions, getSearchEngine, bindSearchEngineSelect } from '@search-provider';
 import { submitChromeSearch } from './chrome-search';
 import { isChromeStore } from './platform';
 import { records, columnFiles, fileLocation } from './data';
 import { getBookmarkOpenMode, openBookmarkDestination } from './bookmark-navigation';
 export { setSearchEngine } from '@search-provider';
+type SearchRecord = { title: string; bookmarkUrl?: string; bookmarkFolder?: string; empty?: boolean };
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
 export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'startup') {
   if (section === 'navigation') return `
@@ -19,8 +21,9 @@ export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'star
     <label><div><strong>名称旁的网站 Logo</strong><span>在右侧选中书签的名称左边显示，独立于书脊设置</span></div><input type="checkbox" id="bookmark-summary-logo" ${getBookmarkSummaryLogo() ? 'checked' : ''}/><i class="toggle"></i></label>
     <label><div><strong>书脊 Logo</strong><span>在档案顶部朝上的书脊显示网站图标</span></div><input type="checkbox" data-cover="logo" ${coverPreferences.logo ? 'checked' : ''}/><i class="toggle"></i></label>
     <label><div><strong>书脊名称 / 备注</strong><span>与浏览器保存的名称一致；空名称保留为空</span></div><input type="checkbox" data-cover="title" ${coverPreferences.title ? 'checked' : ''}/><i class="toggle"></i></label>
+    <label><div><strong>其他书签与移动设备书签</strong><span>开启后作为额外的文件夹列显示，刷新后生效；顶部搜索始终包含全部书签</span></div><input type="checkbox" id="bookmark-other-roots" ${getIncludeOtherBookmarks() ? 'checked' : ''}/><i class="toggle"></i></label>
     <details class="bookmark-icon-help"><summary>图标加载状态与重试</summary><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div></details>`;
-  return `<label><div><strong>启动方式 / STARTUP</strong><span>下次打开生效。简短动画在三维就绪后跳转；直接进入仅显示加载提示。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[['full', '完整启动动画'], ['brief', '简短动画 · 就绪即进入'], ['direct', '直接进入三维档案']].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><p class="bookmark-setting-note">自动进入时，声音在首次交互后启用。</p>`;
+  return `<label><div><strong>启动方式 / STARTUP</strong><span>下次打开生效。每天首次完整：当天第一次打开播放完整开场，之后使用简短动画；简短动画在三维就绪后跳转；直接进入仅显示加载提示。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[['daily', '每天首次完整 · 之后简短'], ['full', '每次完整启动动画'], ['brief', '简短动画 · 就绪即进入'], ['direct', '直接进入三维档案']].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><p class="bookmark-setting-note">声音默认关闭，可点击右上角的声音按钮或在「05 / 声音」中开启；自动进入时，声音在首次交互后播放。</p>`;
 }
 export function mountBookmarkUI() {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
@@ -42,9 +45,10 @@ export function mountBookmarkUI() {
   const list = form.querySelector<HTMLElement>('#bookmark-suggestions')!;
   const clear = form.querySelector<HTMLButtonElement>('.search-clear')!;
   const announce = form.querySelector<HTMLElement>('.search-announcement')!;
-  const find = createBookmarkSearch(records);
+  // Displayed bookmarks first, then those outside the columns (other/mobile folders).
+  const find = createBookmarkSearch<SearchRecord>([...records, ...bookmarkExtras]);
   const recordIndexes = new Map(records.map((record, index) => [record, index]));
-  let matches = find(''), active = -1, composing = false;
+  let matches = find(''), options: (() => void)[] = [], active = -1, composing = false;
   const close = () => { popup.hidden = true; active = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
   const choose = (index: number) => {
     active = index;
@@ -52,23 +56,50 @@ export function mountBookmarkUI() {
     if (active < 0) input.removeAttribute('aria-activedescendant');
     else { input.setAttribute('aria-activedescendant', `bookmark-suggestion-${active}`); list.children[active].scrollIntoView({ block: 'nearest' }); }
   };
+  const searchWeb = (text: string) => {
+    if (isChromeStore) void submitChromeSearch(text, getBookmarkOpenMode(), undefined, undefined, true).catch(() => { announce.textContent = '浏览器默认搜索暂时不可用，请重试。'; });
+    else { const target = webSearchTarget(text); if (target) openBookmarkDestination(target); }
+  };
+  const optionRow = (run: () => void) => {
+    const row = document.createElement('button'); row.type = 'button'; row.tabIndex = -1; row.setAttribute('role', 'option'); row.setAttribute('aria-selected', 'false');
+    row.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
+    row.addEventListener('click', run);
+    options.push(run); list.append(row);
+    return row;
+  };
+  /** Enter does the primary action; the other reading of the text is one step down. */
+  const alternativeRow = (intent: SearchIntent | undefined, text: string) => {
+    if (!intent || (intent.kind === 'search' && !intent.url)) return;
+    const address = intent.url;
+    const row = optionRow(intent.kind === 'url' ? () => searchWeb(text) : () => openBookmarkDestination(address!));
+    row.className = 'bookmark-search-alternative';
+    const glyph = document.createElement('span'); glyph.className = 'bookmark-alternative-glyph'; glyph.setAttribute('aria-hidden', 'true');
+    glyph.textContent = intent.kind === 'url' ? '⌕' : '↗';
+    const title = document.createElement('strong'), detail = document.createElement('small');
+    title.textContent = intent.kind === 'url' ? `搜索「${text}」` : `打开网址「${text}」`;
+    detail.textContent = intent.kind === 'url' ? (isChromeStore ? '使用浏览器默认搜索引擎' : `使用 ${engineNames[getSearchEngine()] ?? ''} 搜索网络`) : address!;
+    const identity = document.createElement('span'); identity.className = 'bookmark-result-identity'; identity.append(title, detail);
+    row.append(glyph, identity);
+  };
   const update = () => {
     clear.hidden = !input.value;
-    if (composing || !input.value.trim()) { matches = []; list.replaceChildren(); close(); announce.textContent = ''; return; }
-    matches = find(input.value); active = -1; list.replaceChildren(); input.removeAttribute('aria-activedescendant');
-    matches.forEach((record, i) => {
-      const row = document.createElement('button'); row.type = 'button'; row.tabIndex = -1; row.id = `bookmark-suggestion-${i}`; row.setAttribute('role', 'option'); row.setAttribute('aria-selected', 'false');
+    if (composing || !input.value.trim()) { matches = []; options = []; list.replaceChildren(); close(); announce.textContent = ''; return; }
+    const text = input.value.trim(), intent = classifySearchInput(text);
+    matches = find(input.value); active = -1; options = []; list.replaceChildren(); input.removeAttribute('aria-activedescendant');
+    alternativeRow(intent, text);
+    matches.forEach(record => {
+      const row = optionRow(() => { if (record.bookmarkUrl) openBookmarkDestination(record.bookmarkUrl); });
       const title = document.createElement('strong'); title.textContent = bookmarkDisplayTitle(record);
       const path = document.createElement('small'); path.textContent = `${record.bookmarkFolder ?? ''} / ${record.bookmarkUrl}`;
-      row.insertAdjacentHTML('afterbegin', bookmarkResultIcon(recordIndexes.get(record)!));
+      row.insertAdjacentHTML('afterbegin', bookmarkResultIcon(recordIndexes.get(record as typeof records[number]) ?? record.bookmarkUrl!));
       const identity = document.createElement('span'); identity.className = 'bookmark-result-identity'; identity.append(title, path); row.append(identity); row.title = `${record.title}\n${record.bookmarkUrl}`;
-      row.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
-      row.addEventListener('click', () => { if (record.bookmarkUrl) openBookmarkDestination(record.bookmarkUrl); });
-      list.append(row);
     });
-    form.querySelector<HTMLElement>('.bookmark-search-empty')!.hidden = matches.length > 0;
+    Array.from(list.children).forEach((node, i) => { node.id = `bookmark-suggestion-${i}`; });
+    const primary = intent?.kind === 'url' ? '打开网址' : '搜索网络';
+    const empty = form.querySelector<HTMLElement>('.bookmark-search-empty')!;
+    empty.hidden = matches.length > 0; empty.textContent = `没有匹配的书签 · 按 Enter ${primary}`;
     popup.hidden = false; input.setAttribute('aria-expanded', 'true'); refreshBookmarkResultIcons();
-    announce.textContent = matches.length ? `${matches.length} 个匹配书签；按上下键选择，或直接 Enter 搜索网络` : '没有匹配书签；按 Enter 搜索网络';
+    announce.textContent = matches.length ? `${matches.length} 个匹配书签；按上下键选择，或直接 Enter ${primary}` : `没有匹配书签；按 Enter ${primary}`;
   };
   input.addEventListener('input', update);
   input.addEventListener('focus', update);
@@ -82,8 +113,7 @@ export function mountBookmarkUI() {
     }
     if (event.target === input && event.key === 'Enter' && active >= 0) {
       event.preventDefault();
-      const target = matches[active]?.bookmarkUrl;
-      if (target) openBookmarkDestination(target);
+      options[active]?.();
     }
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -91,7 +121,7 @@ export function mountBookmarkUI() {
     }
     if (event.target === input && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
       event.preventDefault(); if (popup.hidden) update();
-      if (matches.length) choose((active + (event.key === 'ArrowDown' ? 1 : active < 0 ? 0 : -1) + matches.length) % matches.length);
+      if (options.length) choose((active + (event.key === 'ArrowDown' ? 1 : active < 0 ? 0 : -1) + options.length) % options.length);
     }
   });
   clear.addEventListener('click', () => { input.value = ''; update(); input.focus(); });
@@ -102,10 +132,8 @@ export function mountBookmarkUI() {
   form.addEventListener('submit', event => {
     event.preventDefault();
     if (composing) return;
-    if (active >= 0) {
-      const target = matches[active]?.bookmarkUrl;
-      if (target) openBookmarkDestination(target);
-    } else if (isChromeStore) {
+    if (active >= 0) options[active]?.();
+    else if (isChromeStore) {
       void submitChromeSearch(input.value, getBookmarkOpenMode()).catch(() => { announce.textContent = '浏览器默认搜索暂时不可用，请重试。'; });
     } else {
       const target = searchTarget(input.value, getSearchEngine());
@@ -116,9 +144,10 @@ export function mountBookmarkUI() {
   status.className = 'bookmark-status'; status.setAttribute('role', 'status');
   status.hidden = !bookmarkStatus; status.textContent = bookmarkStatus;
   document.querySelector('#viewport')!.append(status);
-  window.addEventListener('rhine-bookmarks-changed', () => {
+  window.addEventListener('rhine-bookmarks-changed', event => {
     status.hidden = false;
-    status.innerHTML = '书签栏已更新 <button type="button">刷新书签 ↻</button>';
+    status.textContent = (event as CustomEvent<string | undefined>).detail ?? '书签栏已更新';
+    status.insertAdjacentHTML('beforeend', ' <button type="button">刷新书签 ↻</button>');
     status.querySelector('button')!.addEventListener('click', () => location.reload());
   });
   const actions = document.createElement('div'); actions.className = 'bookmark-actions';

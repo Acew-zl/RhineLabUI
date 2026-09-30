@@ -19,6 +19,7 @@ export function paintTheme(amount: number) {
     root.style.setProperty(`--theme-${name}-rgb`, value);
   }
 }
-export function themeSettingsMarkup(dark: boolean) {
-  return `<div class="theme-settings"><div><strong>界面配色</strong><span>玻璃阵列随配色逐张过渡</span></div><div class="theme-choices" role="group" aria-label="界面配色"><button data-color-theme="light" aria-pressed="${!dark}">亮色</button><button data-color-theme="dark" aria-pressed="${dark}">暗色</button></div></div>`;
+export function themeSettingsMarkup(choice: string, followSystem = false) {
+  const button = (value: string, label: string) => `<button data-color-theme="${value}" aria-pressed="${choice === value}">${label}</button>`;
+  return `<div class="theme-settings"><div><strong>界面配色</strong><span>玻璃阵列随配色逐张过渡${followSystem ? "；跟随系统时随系统深浅色切换" : ""}</span></div><div class="theme-choices" role="group" aria-label="界面配色">${button("light", "亮色")}${button("dark", "暗色")}${followSystem ? button("system", "跟随系统") : ""}</div></div>`;
 }
