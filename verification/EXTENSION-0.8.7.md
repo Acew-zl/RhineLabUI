@@ -16,6 +16,8 @@
 - TypeScript 与完整版/Chrome 专用构建通过。`npm run check:extension` 40 项、`npm run check:extension:chrome` 4 项通过；新增测试覆盖调取时序、取消、重复确认、当前页偏好、降级、手势、文件访问限制、静区坐标及共用检索。
 - `scripts/check-extension-dispatch.mjs`：Edge 154.0.4258.48 使用真实三维渲染、明确标注的演示书签及标签页 API 观察桩。确认输入/方向键不移动；46 条匹配带查询进入索引；Ctrl/中键保持选中项；后台创建先于激活，激活时已在详情且解密清晰度 ≥0.995；Esc 不关闭后台页；索引中键保持目录。静止呼吸关闭、鼠标离开阵列并充分收敛后，四秒内新增三维渲染帧为 **0**。这不等同于测得显卡占用为零。见 [结果](extension-0.8.7/results.json)。
 - `scripts/check-extension-native.mjs`：独立临时 Edge 配置加载真实解压扩展，仅写入测试书签，不接触用户配置。目标网页已收到 HTTP 请求并加载时，起始页仍是浏览器的活动标签页；随后真实 `tabs.update` 在详情解密清晰度 0.99646 时激活它，本次确认到切页约 6.1 秒。Ctrl 点击与三维卡片中键也保持前台和选中项。见 [原生标签页结果](extension-0.8.7/native-results.json)。
+- 合入远程 `1c6bd19` 的开场白幕修复后，两版重新构建，44 项单元检查再次通过；在 Edge 中加载 Chrome 专用构建，真实后台创建、动画后激活和两种后台手势均通过，确认到切页约 6.7 秒，激活时清晰度 0.99677。见 [Chrome 构建的原生检查](extension-0.8.7/chrome-build-native-results.json)。这是 Chrome 专用代码包在 Edge 中的检查，不是 Chrome 品牌浏览器或商店安装验收。
+- 远程白幕修复的 `scripts/check-opening-white.mjs` 在最终完整版构建上通过：亮/暗两种配色、八种屏幕尺寸共 16 组，白幕四边缺口均为 0。两份本地 ZIP 均检查完整性、根目录 manifest、版本和权限；校验记录保存于 `release/packages-0.8.7.json`。
 - 既有 `scripts/check-extension-experience.mjs` 的五组检查通过：2D 备用、网址/搜索备选、静音和每日开场、多页同步和系统动态效果、三个桌面尺寸的最小字号及搜索导航避让。见 [结果](extension-0.8.7/experience-results.json)。
 - 阅读画面对照：[1920×1080](extension-0.8.7/reading-1920.png)、[1366×768](extension-0.8.7/reading-1366.png)、[竖屏](extension-0.8.7/reading-portrait.png)、[暗色](extension-0.8.7/reading-dark.png)、[调取完成](extension-0.8.7/dispatch-complete.png)。小窗口初始选档左边缘的既有裁切列为下一轮候选，本轮未改变相机构图。
 
