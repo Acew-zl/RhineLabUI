@@ -1,10 +1,21 @@
-# 浏览器起始页 · 0.8.6 日常使用体验
+# 浏览器起始页 · 0.8.7 检索与阅读体验
 
-完整版与 Chrome 专用构建均为 0.8.6：`npm run build:extension:chrome` 输出 `release/extension-chrome`。Chrome 版网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在完整版。两版均保留本地书签检索、网址直达和打开方式设置。已通过审核的商店版本仍为 Edge 0.8.2、Chrome 0.8.3，0.8.5 / 0.8.6 尚未上传商店。
+完整版与 Chrome 专用构建均为 0.8.7：`npm run build:extension:chrome` 输出 `release/extension-chrome`。Chrome 版网络关键词交由 `chrome.search` 使用浏览器默认搜索引擎；Bing／Google／百度选择仍只在完整版。两版均保留本地书签检索、网址直达和打开方式设置。本轮仅更新源码和本地发行包，未上传商店。
 
 当前 Fork：[Acew-zl/RhineLabUI](https://github.com/Acew-zl/RhineLabUI)。本地 `origin` 指向此仓库，`upstream` 保留原作者仓库。
 
 Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案阵列动效和画质，扩展内将档案映射到浏览器书签栏，新增搜索框及书脊标记。档案正面恢复原始莱茵标签与编号。普通网页仍显示原档案。
+
+## 0.8.7 变更
+
+2026-10-02，按用户认可的 UX 前三项实现；验证与复现见 [EXTENSION-0.8.7.md](../verification/EXTENSION-0.8.7.md)。
+
+- 书脊阅读避让：非选中阵列标签在计数、操作提示和页脚区域平滑淡出，过大的前景标签适度减淡。与既有循环和顶部淡出叠加，不缩小字体、不添加模糊；选中及归位书脊保持清晰。静区布局仅在尺寸或模式变化后更新，页脚时钟不会持续触发 WebGL 重绘。
+- 搜索确认后调取：输入和方向键浏览结果不移动阵列。点击本地书签结果或选中后按 Enter，才移至对应档案，沿原有规则抽取、进入特写并解密。新标签页模式同时开始后台加载网页，动画完成后才激活；当前页模式保留覆盖设置，动画结束后导航。减少动态效果、2D 备用、无对应档案位置及普通 HTTP 预览直接打开。未选择结果时 Enter 仍按输入内容搜索网络或打开网址，Chrome 版继续尊重默认搜索引擎。
+- 后台打开：中键、Windows / Linux 的 Ctrl 点击、macOS 的 ⌘ 点击可以打开任意可点击档案及本地搜索/索引结果，保留当前页面与选中项；Mac Ctrl 不当作后台打开。明确的后台手势不受“覆盖当前页”设置影响。
+- 取消切页：Esc、改选档案、打开设置/查看器、返回阵列或主动切走标签页会取消尚未完成的自动激活。已经创建的网页保留在后台，不替用户关闭。再次确认相同目标时不重复创建正在调取的标签页。
+- 检索一致性：顶部与索引共用宽字符归一化、多关键词匹配和标题排序，顶部超过五条时可进入索引查看全部。“其他书签”等未显示为三维列的内容也可在索引检索，不虚构模型位置。原有文件夹左右导航保留。
+- 不增加权限、访问记录或常驻后台进程；其余 UX 候选仅列于 [下一轮建议](UX-NEXT-STEPS.md)，等待用户审查。
 
 ## 0.8.6 变更
 
@@ -24,7 +35,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 更新现有扩展
 
-本机 `release/extension` 为 0.8.6 完整版，`release/extension-chrome` 为 0.8.6 Chrome 专用版。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.6 沿用各自上一版权限。若之前安装的是 ZIP 解压到其他位置的副本，需要用新版内容替换那个目录。商店安装不会因本地代码改变而更新，需要在原商店条目上传新版本。
+本机 `release/extension` 为 0.8.7 完整版，`release/extension-chrome` 为 0.8.7 Chrome 专用版。在扩展管理页找到 Rhine Lab，点击「重新加载」，再新建标签页。0.8.7 沿用各自上一版权限。若之前安装的是 ZIP 解压到其他位置的副本，需要用新版内容替换那个目录。商店安装不会因本地代码改变而更新，需要在原商店条目上传新版本。
 
 旧警告保存在浏览器的扩展错误列表中，不会因源代码修复自动消失。清除旧日志后再新开标签页，检查是否产生新的错误。本次已将弃用的 `PCFSoftShadowMap` 改为 Three.js 实际使用的 `PCFShadowMap`，不改变已经生效的阴影类型。
 
@@ -99,7 +110,7 @@ Chromium Manifest V3 新标签页扩展。保留三维出场准备、原档案�
 
 ## 安装验收
 
-Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.3 专用版已通过审核（用户确认）；其他桌面 Chromium 浏览器可使用 [GitHub 已发布完整版 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)。本地 0.8.6 由 `npm run build:extension` 与 `npm run build:extension:chrome` 生成 `release/extension` 和 `release/extension-chrome`；打包为 ZIP 时 `manifest.json` 须位于根目录，解压后按以下步骤加载。Firefox 与 Safari 尚无正式发行包。
+Edge 用户可直接从 [Microsoft Edge 扩展商店](https://microsoftedge.microsoft.com/addons/detail/ghkdoeojkoenedlobcpaaeocopddkkmp) 安装。Chrome 0.8.3 专用版已通过审核（用户确认）；其他桌面 Chromium 浏览器可使用 [GitHub 已发布完整版 ZIP（0.8.2）](https://github.com/Acew-zl/RhineLabUI/releases/tag/extension-v0.8.2)。本地 0.8.7 由 `npm run build:extension` 与 `npm run build:extension:chrome` 生成 `release/extension` 和 `release/extension-chrome`；打包为 ZIP 时 `manifest.json` 须位于根目录，解压后按以下步骤加载。Firefox 与 Safari 尚无正式发行包。
 
 1. 在项目目录执行 `npm ci`（首次安装），再执行 `npm run build:extension`。需要 Node.js 24。
 2. Chrome 打开 `chrome://extensions`；Edge 打开 `edge://extensions`。

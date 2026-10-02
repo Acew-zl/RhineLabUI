@@ -23,11 +23,14 @@ import { assetUrl } from "./asset-url";
 import { initPwa, pwaSettingsMarkup } from "./pwa";
 import { isExtension, isChromeStore } from './platform';
 import { RenderCadence, normalizeRenderPace, renderFrameLimit, renderCadenceMarkup, normalizeIdleMotion, idleBreathingSeconds, idleMotionMarkup, SETTLED_FRAME_LIMIT, type RenderPace, type IdleMotion } from './render-cadence';
-import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition } from './bookmark-ui';
+import { mountBookmarkUI, bookmarkSettingsMarkup, setSearchEngine, focusBookmarkSearch, updateBookmarkFolderPosition, type SearchRecord } from './bookmark-ui';
+import { bookmarkExtras } from './bookmarks';
+import { createBookmarkSearch } from './bookmark-search';
+import { BookmarkDispatch } from './bookmark-dispatch';
 import { saveCoverPreference, reloadCoverPreferences } from './bookmark-covers';
 import { setIncludeOtherBookmarks, reloadBookmarkScope } from './bookmark-scope';
 import { reloadSearchEngine } from '@search-provider';
-import { openBookmarkDestination, setBookmarkOpenMode, setNavigationNotice, reloadBookmarkOpenMode } from './bookmark-navigation';
+import { openBookmarkDestination, openBookmarkInBackground, backgroundBookmarkGesture, setBookmarkOpenMode, setNavigationNotice, reloadBookmarkOpenMode } from './bookmark-navigation';
 import './bookmarks.css';
 import { createRollingNumber, createRollingText } from "@kitlangton/rolling-number";
 import { ArchiveScene } from "./scene";
@@ -115,7 +118,9 @@ $("#boot-background").insertAdjacentHTML(
   '<div class="boot-white"></div>',
 );
 const bootSequence = new BootSequence($("#stage"));
-if (isExtension) { mountBookmarkUI(); setNavigationNotice(message => notify(message)); }
+const bookmarkDispatch = new BookmarkDispatch();
+let dispatchSelecting = false;
+if (isExtension) { mountBookmarkUI(openSearchBookmark, openBookmarkIndex); setNavigationNotice(message => notify(message)); }
 $("#viewport").insertAdjacentHTML("beforeend", '<button class="mobile-entry" data-action="skip">进入档案 <span>→</span></button>');
 
 type Mode = "boot" | "archive" | "detail";
@@ -660,6 +665,7 @@ function setMode(next: Mode) {
   }
 }
 function select(index: number, navigation?: ArchiveNavigation) {
+  if (!dispatchSelecting) bookmarkDispatch.cancel();
   selected = (index + records.length) % records.length;
   columnMemory[fileLocation(selected).lane] = selected;
   if (mode === "detail") setMode("archive");
@@ -774,6 +780,47 @@ function inspectFile() {
     audio.play("open");
   });
 }
+function openBookmarkIndex(query: string) {
+  openModal('search');
+  searchQuery = query;
+  $<HTMLInputElement>('#archive-search').value = query;
+  renderResults();
+}
+/** Search/index confirmation alone starts the cinematic dispatch. Typing and
+ * browsing result rows never change the array, selection or folder memory. */
+function openSearchBookmark(record: SearchRecord, background = false) {
+  if (!record.bookmarkUrl) { notify('此书签地址不能在起始页中打开。'); return; }
+  if (background) { bookmarkDispatch.cancel(); void openBookmarkInBackground(record.bookmarkUrl); return; }
+  const index = records.findIndex(r => r === record || (record.bookmarkId !== undefined && r.bookmarkId === record.bookmarkId));
+  const activeScene = scene;
+  const present = ready && activeScene && !prefs.reduced && index >= 0 ? async (signal: AbortSignal) => {
+    await new Promise<void>(resolve => closeModal(resolve));
+    if (signal.aborted) return false;
+    dispatchSelecting = true;
+    try { select(index); } finally { dispatchSelecting = false; }
+    if (!(await waitForBookmarkMotion(() => activeScene.bookmarkSelectionReady, signal))) return false;
+    if (signal.aborted) return false;
+    setMode('detail'); audio.play('open');
+    return waitForBookmarkMotion(() => activeScene.bookmarkOpeningReady, signal);
+  } : undefined;
+  // Restore modal focus before normal navigation in the no-animation path.
+  if (!present) closeModal();
+  void bookmarkDispatch.open(record.bookmarkUrl, { present, canActivate: () => !document.hidden })
+    .catch(() => notify('书签调取未完成，请重新打开。'));
+}
+function waitForBookmarkMotion(readyToContinue: () => boolean, signal: AbortSignal): Promise<boolean> {
+  return new Promise(resolve => {
+    if (signal.aborted) { resolve(false); return; }
+    const deadline = performance.now() + 6000;
+    const finish = (value: boolean) => { clearInterval(timer); signal.removeEventListener('abort', cancelled); resolve(value); };
+    const cancelled = () => finish(false);
+    const timer = setInterval(() => {
+      if (readyToContinue() || !scene || prefs.reduced) finish(true);
+      else if (performance.now() >= deadline) { notify('档案动画未完成，已取消自动切页。'); finish(false); }
+    }, 40);
+    signal.addEventListener('abort', cancelled, { once: true });
+  });
+}
 function readSavedIds() {
   const stored = readLocal<unknown>(savedStore, null);
   return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : null;
@@ -882,6 +929,7 @@ function notify(message: string) {
 
 function openModal(kind: NonNullable<typeof modal>) {
   if (!ready) return;
+  bookmarkDispatch.cancel();
   if (!modal) {
     previousFocus = document.activeElement as HTMLElement;
     modalSiblings = [...$("#stage").children]
@@ -945,6 +993,14 @@ function renderModal() {
 }
 // Large collections render the index in batches as it scrolls, not all rows per keystroke.
 const RESULT_BATCH = 150;
+// Extra roots remain searchable without inventing a position in the 3D array.
+const indexRecords = isExtension ? [...records, ...bookmarkExtras.map(extra => ({
+  ...extra, id: '', en: new URL(extra.bookmarkUrl).hostname || 'BOOKMARK ARCHIVE',
+  category: extra.bookmarkFolder.split(' / ')[0], department: extra.bookmarkFolder,
+  date: '', lead: '本地书签', clearance: 'BOOKMARK', abstract: extra.bookmarkUrl, findings: [], source: extra.bookmarkUrl,
+}))] : records;
+const findIndexBookmarks = createBookmarkSearch(indexRecords, { includeUnavailable: true });
+const indexPositions = new Map(indexRecords.map((record, i) => [record, i]));
 let resultObserver: IntersectionObserver | undefined;
 let resultTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleResults() {
@@ -956,18 +1012,18 @@ function renderResults() {
   clearTimeout(resultTimer);
   resultObserver?.disconnect();
   const query = searchQuery.toLowerCase();
-  const results = records
-    .map((r, i) => ({ r, i }))
+  const results = (isExtension && query.trim() ? findIndexBookmarks(query, Infinity) : indexRecords)
+    .map(r => ({ r, i: indexPositions.get(r)! }))
     .filter(
       ({ r }) =>
         (modal !== "saved" || saved.has(savedKey(r))) &&
         (filter === "全部档案" || r.category === filter) &&
-        `${r.id} ${r.title} ${r.en} ${r.department} ${r.lead} ${r.bookmarkUrl ?? ""}`
+        (isExtension || `${r.id} ${r.title} ${r.en} ${r.department} ${r.lead} ${r.bookmarkUrl ?? ""}`
           .toLowerCase()
-          .includes(query),
+          .includes(query)),
     );
   const row = ({ r, i }: { r: typeof records[number]; i: number }) =>
-    `<button class="result-row" data-result="${i}"><span class="result-name">${isExtension && r.bookmarkUrl ? bookmarkResultIcon(i) : ""}<b>${r.id}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`;
+    `<button class="result-row" ${i < records.length ? `data-result="${i}"` : `data-bookmark-extra="${i - records.length}"`}><span class="result-name">${isExtension && r.bookmarkUrl ? bookmarkResultIcon(i < records.length ? i : r.bookmarkUrl) : ""}<b>${r.id || '—'}</b><span>${escapeHtml(isExtension ? bookmarkDisplayTitle(r) : r.title)}<small>${escapeHtml(r.en)}</small></span>${saved.has(savedKey(r)) ? "<i>＋</i>" : ""}</span><span>${escapeHtml(r.department)}</span><span>${r.clearance === "RESTRICTED" ? "CATALOG ONLY" : "AUTHORIZED"} <i>↗</i></span></button>`;
   const container = $("#search-results");
   let shown = Math.min(RESULT_BATCH, results.length);
   container.innerHTML = results.length
@@ -1101,7 +1157,13 @@ document.addEventListener("click", (e) => {
     select(Number(el.dataset.select));
     return;
   }
-  if (el.dataset.result) {
+  if (el.dataset.result !== undefined || el.dataset.bookmarkExtra !== undefined) {
+    if (isExtension) {
+      e.preventDefault();
+      const record = el.dataset.result !== undefined ? records[Number(el.dataset.result)] : bookmarkExtras[Number(el.dataset.bookmarkExtra)];
+      if (record) openSearchBookmark(record, backgroundBookmarkGesture(e));
+      return;
+    }
     const index = Number(el.dataset.result);
     closeModal(() => {
       select(index);
@@ -1141,6 +1203,7 @@ document.addEventListener("click", (e) => {
   if (action === "open") openFile();
   if (action === "inspect-bookmark") inspectFile();
   if (action === "model-viewer" && mode === "detail" && scene) {
+    bookmarkDispatch.cancel();
     const activeScene = scene;
     // Safari does not always focus a button when it is tapped. Capture the
     // actual opener so closing the modal reliably restores the right control.
@@ -1159,6 +1222,7 @@ document.addEventListener("click", (e) => {
     audio.play("page-open");
   }
   if (action === "back") {
+    bookmarkDispatch.cancel();
     setMode("archive");
     audio.play("back");
   }
@@ -1191,6 +1255,20 @@ document.addEventListener("click", (e) => {
         .catch(() => notify("请使用浏览器的全屏快捷键 F11"));
   }
 });
+if (isExtension) {
+  document.addEventListener('pointerdown', event => {
+    if (backgroundBookmarkGesture(event) && (event.target as Element).closest('.result-row')) event.preventDefault();
+  });
+  document.addEventListener('auxclick', event => {
+    if (event.button !== 1 || !started || modalClosing) return;
+    const row = (event.target as Element).closest<HTMLElement>('.result-row');
+    if (!row) return;
+    event.preventDefault();
+    const record = row.dataset.result !== undefined ? records[Number(row.dataset.result)] : bookmarkExtras[Number(row.dataset.bookmarkExtra)];
+    if (record) openSearchBookmark(record, true);
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) bookmarkDispatch.cancel(); });
+}
 document.addEventListener("keydown", (e) => {
   if (!started) return;
   if (isExtension && (e.target as HTMLElement).id === 'display-name' && e.key === 'Enter') {
@@ -1217,6 +1295,7 @@ document.addEventListener("keydown", (e) => {
   }
   const typing = e.target instanceof HTMLInputElement;
   if (e.key === "Escape") {
+    if (bookmarkDispatch.pending) { bookmarkDispatch.cancel(); setMode('archive'); e.preventDefault(); return; }
     if (modal) closeModal();
     else if (mode === "detail" || mode === "boot") { const sound = mode === "detail" ? "back" : "ui-tick"; setMode("archive"); audio.play(sound); }
     return;
@@ -1450,6 +1529,7 @@ function renderFrame(ms: number) {
   }
 }
 function bindScene(scene: ArchiveScene, cell?: { lane: number; row: number }) {
+    scene.onBackgroundOpen = i => { if (mode === 'archive' && !modal && !viewer?.isOpen) openSearchBookmark(records[i], true); };
     scene.onInspect = () => { if (mode === "archive" && !modal && !viewer?.isOpen) inspectFile(); };
     scene.select(selected, cell ? { cell } : undefined);
     scene.onSelect = (i, cell) => {
@@ -1838,6 +1918,7 @@ Object.assign(window, {
       theme: { choice: prefs.colorTheme, dark: themeIsDark() },
       bootTime: mode === "boot" ? started ? (frozenTime ?? performance.now() / 1000 - bootStart) + 5 : 6.76 : null,
       selected: records[selected].id,
+      bookmarkDispatch: { pending: bookmarkDispatch.pending },
       saved: [...saved],
       audio: audio.stats(),
       wallpaper: isWallpaper ? wallpaperHost() : null,

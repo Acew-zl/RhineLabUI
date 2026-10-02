@@ -1,0 +1,55 @@
+{
+  "results": [
+    "Real tabs.create(active:false) loads the destination while the start page remains active; tabs.update focuses it after decryption",
+    "Real Ctrl-click background opening preserves browser focus",
+    "Real middle-click on the physical 3D card opens a background tab without changing selection"
+  ],
+  "requests": [
+    {
+      "path": "/fixture-b",
+      "time": 1790966984499
+    },
+    {
+      "path": "/favicon.ico",
+      "time": 1790966984561
+    },
+    {
+      "path": "/fixture-a",
+      "time": 1790966994843
+    },
+    {
+      "path": "/favicon.ico",
+      "time": 1790966994891
+    },
+    {
+      "path": "/fixture-b",
+      "time": 1790966994971
+    }
+  ],
+  "errors": [],
+  "extensionId": "chamloacekpjejlpmgcbdedhjhekgogh",
+  "nativeCalls": [
+    {
+      "action": "create",
+      "props": {
+        "url": "http://127.0.0.1:53574/fixture-b",
+        "active": false,
+        "index": 1,
+        "openerTabId": 50082152
+      },
+      "id": 50082154,
+      "time": 4679.89999999851
+    },
+    {
+      "action": "update",
+      "id": 50082154,
+      "props": {
+        "active": true
+      },
+      "time": 10608,
+      "mode": "detail",
+      "clarity": 0.9964648282105939
+    }
+  ],
+  "confirmedToFocusMs": 6081
+}

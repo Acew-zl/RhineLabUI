@@ -59,12 +59,12 @@ export function searchTarget(input: string, engine: keyof typeof searchEngines =
   return directNavigationTarget(input) ?? webSearchTarget(input, engine);
 }
 
-export interface SearchBookmark { title: string; bookmarkUrl?: string; bookmarkFolder?: string; empty?: boolean; }
+export interface SearchBookmark { title: string; id?: string; bookmarkUrl?: string; bookmarkFolder?: string; empty?: boolean; }
 /** Build normalized text once; query text stays local and is never persisted. */
-export function createBookmarkSearch<T extends SearchBookmark>(records: readonly T[]) {
-  const index = records.filter(record => !record.empty && record.bookmarkUrl).map(record => ({
+export function createBookmarkSearch<T extends SearchBookmark>(records: readonly T[], options: { includeUnavailable?: boolean } = {}) {
+  const index = records.filter(record => !record.empty && (record.bookmarkUrl || options.includeUnavailable)).map(record => ({
     record, title: record.title.normalize('NFKC').toLowerCase(),
-    text: `${record.title} ${record.bookmarkUrl} ${record.bookmarkFolder ?? ''}`.normalize('NFKC').toLowerCase(),
+    text: `${record.id ?? ''} ${record.title} ${record.bookmarkUrl ?? ''} ${record.bookmarkFolder ?? ''}`.normalize('NFKC').toLowerCase(),
   }));
   return (query: string, limit = 5) => {
     const value = query.trim().normalize('NFKC').toLowerCase();

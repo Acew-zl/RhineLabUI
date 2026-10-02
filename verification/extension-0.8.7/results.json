@@ -1,0 +1,13 @@
+{
+  "version": "0.8.7",
+  "results": [
+    "Typing/arrow browsing do not move the array; all 46 title/folder matches use the same index query",
+    "Ctrl and middle click on search results open only background tabs, leaving selection intact",
+    "Foreground confirmation preloads then focuses after lift/decryption (6385ms)",
+    "Escape cancels delayed activation without closing the already opened background tab",
+    "Archive index shares normalized search and middle-click keeps the directory open",
+    "HUD quiet zones preserve static-frame reuse: zero 3D redraws in a four-second settled sample",
+    "HUD/spine rendering checked at 1920×1080, 1366×768, portrait and dark theme"
+  ],
+  "errors": []
+}

@@ -30,6 +30,9 @@
 .bookmark-search-empty { font-size: 12px; line-height: 1.8; color: var(--theme-muted, #77756d); margin: 0 0 16px; }
 .search-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .bookmark-search [hidden] { display: none !important; }
+.bookmark-search-all { width: 100%; min-height: 44px; border-top: 1px solid var(--theme-line, #bdb8ad); font-size: 12px; text-align: left; }
+.bookmark-search-all:hover { color: var(--theme-accent, #a67d48); }
+.bookmark-search-all:focus-visible { outline: 2px solid var(--theme-accent, #a67d48); outline-offset: -2px; }
 .bookmark-inspect { display: block; margin-top: 18px; font-size: 14px; opacity: .75; }
 .bookmark-status, .three-notice { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: 90vw; z-index: 200; font-size: 12px; padding: 8px 14px; background: var(--theme-panel, #e6e2d9); color: var(--theme-ink, #171713); border-block: 1px solid var(--theme-line, #969183); }
 :is(.bookmark-status, .three-notice)[hidden] { display: none; }

@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "version": "0.8.7",
+  "results": [
+    "2D fallback: archive, selection, details and dismissible notice without WebGL",
+    "Search: node.js/3.14 searched, localhost over HTTP, github.com opened, alternative row both ways",
+    "Sound: migrated to muted, button toggles and persists; daily opening full then brief",
+    "Sync: theme and sound shared between open pages; motion follows the system live",
+    "Layout: no visible archive text below 12px and no search/nav overlap at 1366×768, 1100×700, 1600×1200"
+  ],
+  "errors": []
+}

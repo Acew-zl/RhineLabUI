@@ -26,6 +26,7 @@ import { DecryptionController } from "./decryption";
 import { fileLocation, bookmarkCatalog, records, archiveColumns } from "./data";
 import { BookmarkCovers, coverPreferences, paintBookmarkCover, bookmarkIcon, onBookmarkIcon, bookmarkCellOpacity } from "./bookmark-covers";
 import { bookmarkSpineGeometry, SPINE_TEXTURE_HEIGHT, SPINE_TEXTURE_WIDTH } from "./bookmark-spine";
+import { backgroundBookmarkGesture } from './bookmark-navigation';
 import {
   cellKey,
   sameCell,
@@ -293,6 +294,7 @@ export class ArchiveScene {
   private layoutKind = "";
   onSelect?: (index: number, cell?: ArchiveCell) => void;
   onInspect?: () => void;
+  onBackgroundOpen?: (index: number) => void;
   private get previewLift() { return bookmarkCatalog ? .6 : .4; }
   onHover?: (index: number | null) => void;
   onNavigate?: (axis: "row" | "lane", direction: number) => void;
@@ -565,7 +567,7 @@ export class ArchiveScene {
     if (bookmarkCatalog) {
       this.bookmarkCovers = new BookmarkCovers(this.renderer.capabilities.maxTextureSize, () => this.renderState.invalidate());
       await this.bookmarkCovers.prepare();
-      try { this.readableBookmarks = new BookmarkReadableLayer(this.container, this.bookmarkCovers.mesh); }
+      try { this.readableBookmarks = new BookmarkReadableLayer(this.container, this.bookmarkCovers.mesh, () => this.renderState.invalidate()); }
       catch (error) {
         // The browser may refuse a second context; the spines then render in the main scene.
         console.warn(error);
@@ -1170,6 +1172,7 @@ export class ArchiveScene {
       });
     };
     canvas.addEventListener("pointerdown", (e) => {
+      if (bookmarkCatalog && this.canBrowse() && backgroundBookmarkGesture(e)) { e.preventDefault(); return; }
       if (e.pointerType === "mouse" && e.button !== 0) return;
       if (!this.canBrowse() && !this.canInspect) return;
       pointers.add(e.pointerId);
@@ -1279,6 +1282,15 @@ export class ArchiveScene {
       this.pointer.set(0, 0);
       this.setHover(null);
     }, { signal: this.inputEvents.signal });
+    const openBackground = (e: MouseEvent) => {
+      if (!bookmarkCatalog || !this.canBrowse() || !backgroundBookmarkGesture(e)) return;
+      e.preventDefault();
+      lastSelectedClick = undefined;
+      const cell = this.pickCell(e.clientX, e.clientY);
+      if (cell) this.onBackgroundOpen?.(fileAtCell(cell));
+    };
+    canvas.addEventListener('click', openBackground, { signal: this.inputEvents.signal });
+    canvas.addEventListener('auxclick', openBackground, { signal: this.inputEvents.signal });
     canvas.addEventListener(
       "wheel",
       (e) => {
@@ -1891,6 +1903,7 @@ export class ArchiveScene {
     // when its actual inputs are identical, including late textures and materials.
     const state = this.renderState;
     this.scene.updateMatrixWorld();
+    this.readableBookmarks?.updateFocus(this.model, this.camera);
     // A changed instance buffer already proves the image changed. Avoid a
     // material/matrix snapshot on those busy frames; capture when it settles.
     if (matricesChanged || cinematic) {
@@ -1938,6 +1951,12 @@ export class ArchiveScene {
     return [(p.x + 1) * this.container.clientWidth / 2, (1 - p.y) * this.container.clientHeight / 2];
   }
   get decryptionFrame() { return this.decryption.frame; }
+  /** Read actual motion, rather than guessing completion from a fixed timeout. */
+  get bookmarkSelectionReady() {
+    const chosen = this.cellPosition(this.selectedCell);
+    return this.loaded && Math.abs(this.columnCamera.value - chosen.x) < .04 && Math.abs(this.rail.value - (-2.17 - chosen.z)) < .04 && this.lift.value >= this.previewLift - .03;
+  }
+  get bookmarkOpeningReady() { return this.loaded && this.detail > .99 && this.decryption.clarity >= .995; }
   finishDecryption() { this.decryption.finish(); }
   get detailVisibility() {
     return ease((this.detail - 0.25) / 0.55);

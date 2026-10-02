@@ -4,14 +4,14 @@ import { bookmarkDisplayTitle } from './bookmark-data';
 import { bookmarkStatus, bookmarkExtras } from './bookmarks';
 import { getIncludeOtherBookmarks } from './bookmark-scope';
 import { coverPreferences, bookmarkIconStatus, retryBookmarkIcons, onBookmarkIcon } from './bookmark-covers';
-import { createBookmarkSearch, classifySearchInput, type SearchIntent } from './bookmark-search';
+import { createBookmarkSearch, classifySearchInput, type SearchIntent, type SearchBookmark } from './bookmark-search';
 import { searchTarget, webSearchTarget, engineNames, engineOptions, getSearchEngine, bindSearchEngineSelect } from '@search-provider';
 import { submitChromeSearch } from './chrome-search';
 import { isChromeStore } from './platform';
 import { records, columnFiles, fileLocation } from './data';
-import { getBookmarkOpenMode, openBookmarkDestination } from './bookmark-navigation';
+import { getBookmarkOpenMode, openBookmarkDestination, openBookmarkInBackground, backgroundBookmarkGesture } from './bookmark-navigation';
 export { setSearchEngine } from '@search-provider';
-type SearchRecord = { title: string; bookmarkUrl?: string; bookmarkFolder?: string; empty?: boolean };
+export type SearchRecord = SearchBookmark & { bookmarkId?: string };
 export function focusBookmarkSearch() { document.querySelector<HTMLInputElement>('#web-search')?.focus(); }
 export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'startup') {
   if (section === 'navigation') return `
@@ -25,7 +25,7 @@ export function bookmarkSettingsMarkup(section: 'navigation' | 'display' | 'star
     <details class="bookmark-icon-help"><summary>图标加载状态与重试</summary><div class="bookmark-icon-status"><span data-icon-status>${bookmarkIconStatus()}</span><button type="button" data-retry-icons>重试图标 ↻</button></div></details>`;
   return `<label><div><strong>启动方式 / STARTUP</strong><span>下次打开生效。每天首次完整：当天第一次打开播放完整开场，之后使用简短动画；简短动画在三维就绪后跳转；直接进入仅显示加载提示。</span></div><select id="bookmark-startup-mode" aria-label="启动方式">${[['daily', '每天首次完整 · 之后简短'], ['full', '每次完整启动动画'], ['brief', '简短动画 · 就绪即进入'], ['direct', '直接进入三维档案']].map(([value, label]) => `<option value="${value}" ${getBookmarkStartupMode() === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label><p class="bookmark-setting-note">声音默认关闭，可点击右上角的声音按钮或在「05 / 声音」中开启；自动进入时，声音在首次交互后播放。</p>`;
 }
-export function mountBookmarkUI() {
+export function mountBookmarkUI(openRecord: (record: SearchRecord, background?: boolean) => void, openIndex: (query: string) => void) {
   onBookmarkIcon(() => { const status = document.querySelector('[data-icon-status]'); if (status) status.textContent = bookmarkIconStatus(); });
   document.addEventListener('click', event => { if ((event.target as Element).closest('[data-retry-icons]')) retryBookmarkIcons(); });
   document.querySelector<HTMLElement>('#stage')!.dataset.bookmarks = 'true';
@@ -45,25 +45,34 @@ export function mountBookmarkUI() {
   const list = form.querySelector<HTMLElement>('#bookmark-suggestions')!;
   const clear = form.querySelector<HTMLButtonElement>('.search-clear')!;
   const announce = form.querySelector<HTMLElement>('.search-announcement')!;
+  const caption = form.querySelector<HTMLElement>('.bookmark-search-caption span')!;
+  const more = document.createElement('button'); more.type = 'button'; more.className = 'bookmark-search-all'; more.hidden = true;
+  popup.append(more);
+  more.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
+  more.addEventListener('click', () => { close(); openIndex(input.value); });
   // Displayed bookmarks first, then those outside the columns (other/mobile folders).
   const find = createBookmarkSearch<SearchRecord>([...records, ...bookmarkExtras]);
   const recordIndexes = new Map(records.map((record, index) => [record, index]));
-  let matches = find(''), options: (() => void)[] = [], active = -1, composing = false;
+  let matches = find(''), options: ((background?: boolean) => void)[] = [], active = -1, composing = false;
+  const updateCaption = () => { caption.textContent = `↑ ↓ 选择 · ENTER ${active >= 0 ? (list.children[active] as HTMLElement).dataset.enterAction : classifySearchInput(input.value)?.kind === 'url' ? '打开网址' : '搜索网络'}`; };
   const close = () => { popup.hidden = true; active = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
   const choose = (index: number) => {
     active = index;
     Array.from(list.children).forEach((node, i) => node.setAttribute('aria-selected', String(i === active)));
     if (active < 0) input.removeAttribute('aria-activedescendant');
     else { input.setAttribute('aria-activedescendant', `bookmark-suggestion-${active}`); list.children[active].scrollIntoView({ block: 'nearest' }); }
+    updateCaption();
   };
   const searchWeb = (text: string) => {
     if (isChromeStore) void submitChromeSearch(text, getBookmarkOpenMode(), undefined, undefined, true).catch(() => { announce.textContent = '浏览器默认搜索暂时不可用，请重试。'; });
     else { const target = webSearchTarget(text); if (target) openBookmarkDestination(target); }
   };
-  const optionRow = (run: () => void) => {
+  const optionRow = (run: (background?: boolean) => void, bookmark = false, enterAction = '打开书签') => {
     const row = document.createElement('button'); row.type = 'button'; row.tabIndex = -1; row.setAttribute('role', 'option'); row.setAttribute('aria-selected', 'false');
+    row.dataset.enterAction = enterAction;
     row.addEventListener('pointerdown', event => { if (event.pointerType === 'mouse') event.preventDefault(); });
-    row.addEventListener('click', run);
+    row.addEventListener('click', event => run(bookmark && backgroundBookmarkGesture(event)));
+    if (bookmark) row.addEventListener('auxclick', event => { if (event.button === 1) { event.preventDefault(); run(true); } });
     options.push(run); list.append(row);
     return row;
   };
@@ -71,7 +80,7 @@ export function mountBookmarkUI() {
   const alternativeRow = (intent: SearchIntent | undefined, text: string) => {
     if (!intent || (intent.kind === 'search' && !intent.url)) return;
     const address = intent.url;
-    const row = optionRow(intent.kind === 'url' ? () => searchWeb(text) : () => openBookmarkDestination(address!));
+    const row = optionRow(intent.kind === 'url' ? () => searchWeb(text) : background => { if (background) void openBookmarkInBackground(address!); else openBookmarkDestination(address!); }, intent.kind !== 'url', intent.kind === 'url' ? '搜索网络' : '打开网址');
     row.className = 'bookmark-search-alternative';
     const glyph = document.createElement('span'); glyph.className = 'bookmark-alternative-glyph'; glyph.setAttribute('aria-hidden', 'true');
     glyph.textContent = intent.kind === 'url' ? '⌕' : '↗';
@@ -85,10 +94,14 @@ export function mountBookmarkUI() {
     clear.hidden = !input.value;
     if (composing || !input.value.trim()) { matches = []; options = []; list.replaceChildren(); close(); announce.textContent = ''; return; }
     const text = input.value.trim(), intent = classifySearchInput(text);
-    matches = find(input.value); active = -1; options = []; list.replaceChildren(); input.removeAttribute('aria-activedescendant');
+    const all = find(input.value, Infinity);
+    matches = all.slice(0, 5); active = -1; options = []; list.replaceChildren(); input.removeAttribute('aria-activedescendant');
+    more.hidden = all.length <= 5; more.textContent = `在索引中查看全部 ${all.length} 条匹配 →`;
+    updateCaption();
     alternativeRow(intent, text);
     matches.forEach(record => {
-      const row = optionRow(() => { if (record.bookmarkUrl) openBookmarkDestination(record.bookmarkUrl); });
+      const row = optionRow(background => { if (!background) { close(); input.blur(); } openRecord(record, background); }, true);
+      row.dataset.bookmarkId = record.bookmarkId ?? '';
       const title = document.createElement('strong'); title.textContent = bookmarkDisplayTitle(record);
       const path = document.createElement('small'); path.textContent = `${record.bookmarkFolder ?? ''} / ${record.bookmarkUrl}`;
       row.insertAdjacentHTML('afterbegin', bookmarkResultIcon(recordIndexes.get(record as typeof records[number]) ?? record.bookmarkUrl!));
